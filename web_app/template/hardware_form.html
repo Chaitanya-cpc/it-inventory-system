@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+
+  {# Determine form action URL based on whether we are editing or adding #}
+  {% set form_action = url_for('main.hardware_edit', asset_id=asset_id) if edit_mode else url_for('main.hardware_add') %}
+
+  <form method="post" action="{{ form_action }}">
+    {# Add CSRF token here if using Flask-WTF #}
+
+    {# Pre-fill form fields if editing or if there was an error on add #}
+    {# Use asset dictionary or object passed from the route #}
+    <div class="mb-3">
+      <label for="name" class="form-label">Name *</label>
+      <input type="text" class="form-control" id="name" name="name" value="{{ asset.name or '' }}" required>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="category" class="form-label">Category *</label>
+            <select class="form-select" id="category" name="category" required>
+                <option value="" {% if not asset.category %}selected{% endif %}>Choose...</option>
+                {% set categories = ['Laptop', 'Desktop', 'Mouse', 'Keyboard', 'Server', 'Printer', 'Wifi', 'Phone', 'Storage Drive', 'Monitor', 'UPS', 'Other'] %}
+                {% for cat in categories %}
+                    <option value="{{ cat }}" {% if asset.category == cat %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+         <div class="col-md-6 mb-3">
+            <label for="sub_category" class="form-label">Sub-Category</label>
+            <input type="text" class="form-control" id="sub_category" name="sub_category" value="{{ asset.sub_category or '' }}">
+        </div>
+    </div>
+
+     <div class="mb-3">
+        <label for="status" class="form-label">Status *</label>
+        <select class="form-select" id="status" name="status" required>
+             <option value="" {% if not asset.status %}selected{% endif %}>Choose...</option>
+             {% set statuses = ['New', 'Okay', 'Needs Repair', 'Dead', 'Deployed', 'Stored'] %}
+             {% for stat in statuses %}
+                <option value="{{ stat }}" {% if asset.status == stat %}selected{% endif %}>{{ stat }}</option>
+             {% endfor %}
+        </select>
+    </div>
+
+    {# --- Add other fields similarly --- #}
+    <div class="mb-3">
+      <label for="model" class="form-label">Model</label>
+      <input type="text" class="form-control" id="model" name="model" value="{{ asset.model or '' }}">
+    </div>
+
+    <div class="mb-3">
+      <label for="serial_number" class="form-label">Serial Number</label>
+      <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ asset.serial_number or '' }}">
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="purchase_date" class="form-label">Purchase Date</label>
+            {# Input type date renders a date picker in supporting browsers #}
+            {# Value needs YYYY-MM-DD format #}
+            <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ asset.purchase_date.isoformat() if asset.purchase_date else '' }}">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="acquisition_type" class="form-label">Acquisition Type</label>
+            <select class="form-select" id="acquisition_type" name="acquisition_type">
+                 <option value="" {% if not asset.acquisition_type %}selected{% endif %}>Choose...</option>
+                 {% set acq_types = ['Purchased', 'Rented', 'Leased', 'Subscription', 'Other'] %}
+                 {% for acq in acq_types %}
+                    <option value="{{ acq }}" {% if asset.acquisition_type == acq %}selected{% endif %}>{{ acq }}</option>
+                 {% endfor %}
+            </select>
+        </div>
+    </div>
+
+     <div class="mb-3">
+      <label for="assigned_user" class="form-label">Assigned User</label>
+      <input type="text" class="form-control" id="assigned_user" name="assigned_user" value="{{ asset.assigned_user or '' }}">
+    </div>
+
+    <div class="mb-3">
+      <label for="location" class="form-label">Location</label>
+      <input type="text" class="form-control" id="location" name="location" value="{{ asset.location or '' }}">
+    </div>
+
+     <div class="mb-3">
+      <label for="notes" class="form-label">Notes</label>
+      <textarea class="form-control" id="notes" name="notes" rows="3">{{ asset.notes or '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-success">{{ 'Update' if edit_mode else 'Add' }} Hardware</button>
+    <a href="{{ url_for('main.hardware_list') }}" class="btn btn-secondary">Cancel</a>
+
+  </form>
+{% endblock %}
