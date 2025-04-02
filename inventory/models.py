@@ -6,11 +6,14 @@ from typing import Optional
 # Use Optional[] for fields that can be NULL in the database
 @dataclass
 class HardwareAsset:
-    id: Optional[int] = None
+    # Fields WITHOUT default values first
     name: str
     category: str
-    sub_category: Optional[str] = None
     status: str
+
+    # Fields WITH default values next (Optional[...] implies default=None)
+    id: Optional[int] = None
+    sub_category: Optional[str] = None
     model: Optional[str] = None
     serial_number: Optional[str] = None
     purchase_date: Optional[date] = None
@@ -24,10 +27,13 @@ class HardwareAsset:
 
 @dataclass
 class AssociatedInfo:
-    id: Optional[int] = None
+    # Fields WITHOUT default values first
     hardware_asset_id: int
     info_type: str
     name: str
+
+    # Fields WITH default values next (Optional[...] implies default=None)
+    id: Optional[int] = None
     details: Optional[str] = None
     license_key: Optional[str] = None
     activation_date: Optional[date] = None
