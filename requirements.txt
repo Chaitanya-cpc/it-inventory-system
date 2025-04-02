@@ -1,0 +1,10 @@
+
+**3. `requirements.txt`**
+
+For now, we primarily rely on Python's standard library (`sqlite3`, `datetime`, `argparse`). If you add external libraries (like `click` for a nicer CLI, or `SQLAlchemy` for an ORM), list them here.
+
+```txt
+# No external dependencies required for the basic version yet.
+# Add libraries like 'click', 'SQLAlchemy', 'python-dateutil' here if needed.
+# Example:
+# click>=8.0
