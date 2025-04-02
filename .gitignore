@@ -22,12 +22,21 @@ venv.bak/
 *.swp
 *.swo
 
-# Optional data directory (if you keep DB outside source control)
-data/
+# Instance folder (Flask sensitive config)
+instance/
 
-# ... (previous entries) ...
+# Data directory (if DB is not committed)
+data/
 
 # Testing
 .pytest_cache/
-test_inventory.db # Ignore the test database file
-test_inventory.db-journal # And its journal file
+tests/test_inventory.db
+tests/test_inventory.db-journal
+
+# OS / Build artifacts
+*.so
+*.a
+.DS_Store
+dist/
+build/
+*.egg-info/

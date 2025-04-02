@@ -1,57 +1,69 @@
 # inventory/reporting.py
-import sqlite3 # <--- ADD THIS LINE
+import sqlite3 # Needed for sqlite3.Error
+import datetime
 from datetime import date, timedelta
 from typing import List, Dict, Any
 from . import crud, models
-from .database import DEFAULT_DATABASE_PATH, get_db_connection, close_db_connection # Import helpers if used directly
+from .database import DEFAULT_DATABASE_PATH, get_db_connection, close_db_connection
 
 def get_assets_by_status(status: str, db_path=DEFAULT_DATABASE_PATH) -> List[models.HardwareAsset]:
     """Finds hardware assets with a specific status."""
-    # This function relies solely on crud.search_hardware_assets,
-    # so it doesn't directly need sqlite3 itself.
     criteria = {'status': status}
     return crud.search_hardware_assets(criteria, db_path)
 
 def get_info_expiring_soon(days: int = 30, db_path=DEFAULT_DATABASE_PATH) -> List[models.AssociatedInfo]:
     """Finds licenses/warranties expiring within a given number of days."""
-    # Use the direct connection helpers here for consistency, or keep using crud._get_conn_cursor
-    # conn, cursor = crud._get_conn_cursor(db_path) # Option 1: Keep using crud's helper
-    conn = get_db_connection(db_path)             # Option 2: Use direct import
-    cursor = conn.cursor()
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor() # Use conn.cursor() directly
 
     cutoff_date = (date.today() + timedelta(days=days)).isoformat()
     today_str = date.today().isoformat()
 
-    # Select info where expiry_date is not null, is after today, and before the cutoff date
     sql = """
         SELECT ai.*, hw.name as hardware_name
         FROM associated_info ai
         JOIN hardware_assets hw ON ai.hardware_asset_id = hw.id
         WHERE ai.expiry_date IS NOT NULL
-          AND ai.expiry_date >= ?
-          AND ai.expiry_date <= ?
-        ORDER BY ai.expiry_date
+          AND date(ai.expiry_date) >= date(?) /* Ensure date comparison */
+          AND date(ai.expiry_date) <= date(?) /* Ensure date comparison */
+        ORDER BY date(ai.expiry_date) /* Order by date part */
     """
     results = []
     try:
+        # Use sqlite3.Row factory which was set on the connection
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
         cursor.execute(sql, (today_str, cutoff_date))
         rows = cursor.fetchall()
-        # Convert rows to AssociatedInfo objects, augmented with hardware name
-        for row_dict in [dict(row) for row in rows]:
+
+        for row in rows:
+             row_dict = dict(row) # Convert row to dict
              hw_name = row_dict.pop('hardware_name') # Remove extra field before creating model
-             info = models.AssociatedInfo(**row_dict)
-             # Add hardware name as temporary attribute for reporting context
+             # Manually handle date conversion if needed (Row might return strings)
+             for key in ['activation_date', 'expiry_date', 'created_at', 'updated_at']:
+                 if key in row_dict and isinstance(row_dict[key], str):
+                     try:
+                         if key.endswith('_date'):
+                            row_dict[key] = date.fromisoformat(row_dict[key])
+                         else: # timestamp fields
+                            # Adjust parsing if needed based on how SQLite stores TIMESTAMP
+                            dt_obj = datetime.fromisoformat(row_dict[key].replace(' ', 'T'))
+                            row_dict[key] = dt_obj
+                     except (ValueError, TypeError):
+                        row_dict[key] = None # Handle potential parsing errors
+
+
+             # Filter out keys not in the model definition (like hardware_name)
+             model_fields = {f.name for f in models.AssociatedInfo.__dataclass_fields__.values()}
+             filtered_dict = {k: v for k, v in row_dict.items() if k in model_fields}
+
+             info = models.AssociatedInfo(**filtered_dict)
              setattr(info, 'hardware_name', hw_name) # Use setattr for adding temporary attribute
              results.append(info)
-    except sqlite3.Error as e: # <--- This now works because sqlite3 is imported
+
+    except sqlite3.Error as e:
         print(f"Error fetching expiring info: {e}")
-        # Return empty list on error, or re-raise? For reporting, often best to just report failure.
     finally:
-        close_db_connection(conn) # Use direct import
+        close_db_connection(conn)
 
     return results
-
-# Add more reporting functions as needed:
-# - Assets purchased within a date range
-# - Assets assigned to a specific user
-# - Count of assets by category/status

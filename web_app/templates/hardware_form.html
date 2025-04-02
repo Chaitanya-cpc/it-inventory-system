@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% from "_form_helpers.html" import render_field %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+      <h1 class="h2">{{ title }}</h1>
+  </div>
+
+  {# Determine form action URL #}
+  {% set form_action = url_for('main.hardware_edit', asset_id=asset_id) if edit_mode else url_for('main.hardware_add') %}
+
+  <form method="post" action="{{ form_action }}" novalidate>
+    {{ form.hidden_tag() }} {# Includes CSRF token #}
+
+    {# Render fields using the macro #}
+    {{ render_field(form.name, required=true, autofocus=true) }}
+
+    <div class="row">
+        <div class="col-md-6">
+            {{ render_field(form.category, required=true) }}
+        </div>
+         <div class="col-md-6">
+             {{ render_field(form.sub_category) }}
+        </div>
+    </div>
+
+     {{ render_field(form.status, required=true) }}
+     {{ render_field(form.model) }}
+     {{ render_field(form.serial_number) }}
+
+    <div class="row">
+        <div class="col-md-6">
+             {{ render_field(form.purchase_date) }}
+        </div>
+        <div class="col-md-6">
+            {{ render_field(form.acquisition_type) }}
+        </div>
+    </div>
+
+     {{ render_field(form.assigned_user) }}
+     {{ render_field(form.location) }}
+     {{ render_field(form.notes, rows=4) }}
+
+
+    <div class="mt-4">
+        {{ form.submit(class="btn btn-success btn-lg me-2") }}
+        {# Determine cancel URL based on mode #}
+        {% set cancel_url = url_for('main.hardware_view', asset_id=asset_id) if edit_mode else url_for('main.hardware_list') %}
+        <a href="{{ cancel_url }}" class="btn btn-secondary btn-lg">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

@@ -2,30 +2,27 @@
 from datetime import date, datetime
 import re
 import ipaddress
-
-# Keep the date parsing simple for now, rely on Click's parsing primarily
-# def parse_date(date_str: str | None) -> date | None:
-#     # ... (can be simplified or removed if Click handles it)
+import json # For format_output
 
 def format_output(item):
-    """Helper to format model object details for printing."""
+    """Helper to format model object details for printing (e.g., debugging)."""
     if not item:
         return "{}"
-    details = vars(item) # Get attributes as a dict
+    # Handle potential dataclass objects or simple dicts
+    details = vars(item) if hasattr(item, '__dict__') else item
+
     formatted = {}
     for k, v in details.items():
-        if v is not None:
-            if isinstance(v, (date, datetime)):
-                formatted[k] = v.isoformat()
-            else:
-                formatted[k] = v
-    # Pretty print might be better handled by a dedicated library later
-    # For now, just return the cleaned dictionary
-    import json
-    return json.dumps(formatted, indent=2)
+        if k.startswith('_'): continue # Skip private/internal attributes
+        if isinstance(v, (date, datetime)):
+            formatted[k] = v.isoformat()
+        else:
+            formatted[k] = v
+    # Pretty print JSON representation
+    return json.dumps(formatted, indent=2, default=str) # Use default=str for unhandled types
 
 
-# --- Validators ---
+# --- Validators (Can be used by Flask-WTF forms) ---
 
 def is_valid_ip(ip_str: str | None) -> bool:
     """Checks if a string is a valid IPv4 or IPv6 address."""
@@ -41,8 +38,11 @@ def is_valid_mac(mac_str: str | None) -> bool:
     """Checks if a string is a valid MAC address format."""
     if not mac_str:
         return True # Allow empty
-    # Common formats: XX:XX:XX:XX:XX:XX, XX-XX-XX-XX-XX-XX, XXXXXXXXXXXX
     pattern = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{12})$')
     return bool(pattern.match(mac_str))
 
-# Add more validators as needed (e.g., IMEI format)
+# Example of a custom WTForms validator using these utils
+# from wtforms.validators import ValidationError
+# def ip_address_validator(form, field):
+#     if field.data and not is_valid_ip(field.data):
+#         raise ValidationError('Invalid IP address format.')
