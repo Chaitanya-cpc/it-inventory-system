@@ -1,284 +1,348 @@
 # inventory/cli.py
-import argparse
-from . import crud, models, database, utils
+import click
+from datetime import datetime # Click uses datetime objects
+from . import crud, models, database, utils, reporting
 
-# --- Argument Parsers ---
+# --- Click Type for Date ---
+# Allows YYYY-MM-DD input format
+class DateType(click.ParamType):
+    name = 'date'
+    def convert(self, value, param, ctx):
+        if value is None:
+            return None
+        try:
+            return datetime.strptime(value, '%Y-%m-%d').date()
+        except ValueError:
+            self.fail(f"Incorrect date format for {value}. Please use YYYY-MM-DD.", param, ctx)
 
-def setup_parsers():
-    """Sets up the main parser and subparsers for commands."""
-    parser = argparse.ArgumentParser(description="Inventory Management System CLI")
-    subparsers = parser.add_subparsers(dest='command', help='Available commands', required=True)
+# --- Reusable Option Decorators ---
+# Define common options once to avoid repetition
 
-    # --- Database Initialization Command ---
-    parser_init_db = subparsers.add_parser('init-db', help='Initialize the database schema')
-    parser_init_db.set_defaults(func=handle_init_db)
+# Hardware Fields
+opt_name = click.option('--name', help='Unique asset name/tag (e.g., "ENG-LAP-005")')
+opt_category = click.option('--category', type=click.Choice(['Laptop', 'Desktop', 'Mouse', 'Keyboard', 'Server', 'Printer', 'Wifi', 'Phone', 'Storage Drive', 'Monitor', 'UPS', 'Other'], case_sensitive=False), help='Asset category')
+opt_sub_category = click.option('--sub-category', help='Specific type (e.g., "Engineering", "AIO", "Router")')
+opt_status = click.option('--status', type=click.Choice(['New', 'Okay', 'Needs Repair', 'Dead', 'Deployed', 'Stored'], case_sensitive=False), help='Current status')
+opt_model = click.option('--model', help='Model name/number')
+opt_serial = click.option('--serial', help='Serial number or Service Tag')
+opt_purchase_date = click.option('--purchase-date', type=DateType(), help='Date of purchase (YYYY-MM-DD)')
+opt_acquisition = click.option('--acquisition', type=click.Choice(['Purchased', 'Rented', 'Leased', 'Subscription', 'Other'], case_sensitive=False), help='Acquisition type')
+opt_assigned_user = click.option('--user', help='User assigned to the asset')
+opt_location = click.option('--location', help='Physical location of the asset')
+opt_notes = click.option('--notes', help='General notes about the asset')
 
-    # --- Hardware Commands ---
-    parser_hw = subparsers.add_parser('hardware', help='Manage hardware assets')
-    hw_subparsers = parser_hw.add_subparsers(dest='action', help='Hardware actions', required=True)
-
-    # Add Hardware
-    parser_add_hw = hw_subparsers.add_parser('add', help='Add a new hardware asset')
-    parser_add_hw.add_argument('--name', required=True, help='User-friendly name (e.g., "ENG-LAP-005")')
-    parser_add_hw.add_argument('--category', required=True, choices=['Laptop', 'Desktop', 'Mouse', 'Keyboard', 'Server', 'Printer', 'Wifi', 'Phone', 'Storage Drive', 'Monitor', 'UPS', 'Other'], help='Asset category')
-    parser_add_hw.add_argument('--status', required=True, choices=['New', 'Okay', 'Needs Repair', 'Dead'], help='Current status')
-    parser_add_hw.add_argument('--model', help='Model name/number')
-    parser_add_hw.add_argument('--serial', help='Serial number or Service Tag (should be unique)')
-    parser_add_hw.add_argument('--purchase_date', help='Date of purchase (YYYY-MM-DD)')
-    parser_add_hw.add_argument('--acquisition', choices=['Purchased', 'Rented', 'Leased', 'Other'], help='Acquisition type')
-    parser_add_hw.set_defaults(func=handle_add_hardware)
-
-    # List Hardware
-    parser_list_hw = hw_subparsers.add_parser('list', help='List hardware assets')
-    parser_list_hw.add_argument('--id', type=int, help='List details for a specific hardware ID')
-    parser_list_hw.set_defaults(func=handle_list_hardware)
-
-    # Update Hardware
-    parser_update_hw = hw_subparsers.add_parser('update', help='Update an existing hardware asset')
-    parser_update_hw.add_argument('id', type=int, help='ID of the hardware asset to update')
-    # Add arguments for fields that can be updated (optional)
-    parser_update_hw.add_argument('--name', help='New user-friendly name')
-    parser_update_hw.add_argument('--category', choices=['Laptop', 'Desktop', 'Mouse', 'Keyboard', 'Server', 'Printer', 'Wifi', 'Phone', 'Storage Drive', 'Monitor', 'UPS', 'Other'], help='New asset category')
-    parser_update_hw.add_argument('--status', choices=['New', 'Okay', 'Needs Repair', 'Dead'], help='New status')
-    parser_update_hw.add_argument('--model', help='New model name/number')
-    parser_update_hw.add_argument('--serial', help='New serial number')
-    parser_update_hw.add_argument('--purchase_date', help='New date of purchase (YYYY-MM-DD)')
-    parser_update_hw.add_argument('--acquisition', choices=['Purchased', 'Rented', 'Leased', 'Other'], help='New acquisition type')
-    parser_update_hw.set_defaults(func=handle_update_hardware)
+# Associated Info Fields
+opt_info_hw_id = click.option('--hardware-id', required=True, type=int, help='ID of the associated hardware asset')
+opt_info_type = click.option('--type', required=True, type=click.Choice(['Office Suite', 'Firewall', 'Antivirus', 'OS', 'Network', 'Warranty', 'Subscription', 'Other License', 'Configuration', 'Note'], case_sensitive=False), help='Type of information')
+opt_info_name = click.option('--name', required=True, help='Name (e.g., "Windows 11 Pro", "Warranty Details")')
+opt_info_details = click.option('--details', help='Specific details (IP, MAC, config info, etc.)')
+opt_info_key = click.option('--key', help='License key (if applicable)')
+opt_info_activation_date = click.option('--activation-date', type=DateType(), help='Activation date (YYYY-MM-DD)')
+opt_info_expiry_date = click.option('--expiry-date', type=DateType(), help='Expiry date (YYYY-MM-DD)')
+opt_info_notes = click.option('--notes', help='Notes about this specific info/license')
 
 
-    # Delete Hardware
-    parser_delete_hw = hw_subparsers.add_parser('delete', help='Delete a hardware asset')
-    parser_delete_hw.add_argument('id', type=int, help='ID of the hardware asset to delete')
-    parser_delete_hw.set_defaults(func=handle_delete_hardware)
+# --- Main CLI Group ---
+@click.group()
+def cli():
+    """IT Inventory Management System CLI."""
+    pass # Entry point for commands
 
-    # --- Software/License Commands ---
-    parser_sw = subparsers.add_parser('software', help='Manage software/licenses/info')
-    sw_subparsers = parser_sw.add_subparsers(dest='action', help='Software actions', required=True)
-
-    # Add Software/License
-    parser_add_sw = sw_subparsers.add_parser('add', help='Add software/license/info linked to hardware')
-    parser_add_sw.add_argument('--hardware_id', type=int, required=True, help='ID of the hardware asset this belongs to')
-    parser_add_sw.add_argument('--name', required=True, help='Name (e.g., "Windows 11 Pro", "Office 365 E3", "Warranty")')
-    parser_add_sw.add_argument('--type', required=True, choices=['Office Suite', 'Firewall', 'Antivirus', 'OS', 'Network Info', 'Warranty', 'Activation', 'Other License'], help='Type of information')
-    parser_add_sw.add_argument('--key', help='License key (if applicable)')
-    parser_add_sw.add_argument('--ip', help='IP Address (for Network Info)')
-    parser_add_sw.add_argument('--mac', help='MAC Address (for Network Info)')
-    parser_add_sw.add_argument('--imei', help='IMEI (for Phones)')
-    parser_add_sw.add_argument('--dns', help='DNS Servers (comma-separated, for Network Info)')
-    parser_add_sw.add_argument('--activation_date', help='Activation date (YYYY-MM-DD)')
-    parser_add_sw.add_argument('--expiry_date', help='Expiry date (YYYY-MM-DD, for licenses/warranty)')
-    parser_add_sw.set_defaults(func=handle_add_software)
-
-    # List Software/License
-    parser_list_sw = sw_subparsers.add_parser('list', help='List software/licenses')
-    parser_list_sw.add_argument('--hardware_id', type=int, help='List software for a specific hardware ID')
-    parser_list_sw.add_argument('--all', action='store_true', help='List all software/licenses')
-    parser_list_sw.set_defaults(func=handle_list_software)
-
-    # Update Software/License (Simplified - Add specific field arguments as needed)
-    parser_update_sw = sw_subparsers.add_parser('update', help='Update existing software/license info')
-    parser_update_sw.add_argument('id', type=int, help='ID of the software/license record to update')
-    # Add args for fields like --name, --key, --expiry_date etc.
-    parser_update_sw.add_argument('--name', help='New name')
-    parser_update_sw.add_argument('--type', choices=['Office Suite', 'Firewall', 'Antivirus', 'OS', 'Network Info', 'Warranty', 'Activation', 'Other License'], help='New type')
-    parser_update_sw.add_argument('--key', help='New license key')
-    parser_update_sw.add_argument('--ip', help='New IP Address')
-    parser_update_sw.add_argument('--mac', help='New MAC Address')
-    parser_update_sw.add_argument('--imei', help='New IMEI')
-    parser_update_sw.add_argument('--dns', help='New DNS Servers')
-    parser_update_sw.add_argument('--activation_date', help='New activation date (YYYY-MM-DD)')
-    parser_update_sw.add_argument('--expiry_date', help='New expiry date (YYYY-MM-DD)')
-    parser_update_sw.add_argument('--hardware_id', type=int, help='Move to different hardware ID')
-    parser_update_sw.set_defaults(func=handle_update_software)
-
-
-    # Delete Software/License
-    parser_delete_sw = sw_subparsers.add_parser('delete', help='Delete a software/license record')
-    parser_delete_sw.add_argument('id', type=int, help='ID of the software/license record to delete')
-    parser_delete_sw.set_defaults(func=handle_delete_software)
-
-
-    return parser
-
-# --- Command Handler Functions ---
-
-def handle_init_db(args):
-    """Handler for the 'init-db' command."""
+# --- Database Command ---
+@cli.command('init-db')
+def init_db_command():
+    """Initializes the database schema if it doesn't exist."""
     try:
+        click.echo("Initializing database...")
         database.initialize_database()
+        click.echo(f"Database ready at {database.DEFAULT_DATABASE_PATH}")
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        click.echo(f"Error initializing database: {e}", err=True)
 
-def handle_add_hardware(args):
-    """Handler for 'hardware add' command."""
-    purchase_dt = utils.parse_date(args.purchase_date)
-    asset = models.HardwareAsset(
-        name=args.name,
-        category=args.category,
-        status=args.status,
-        model=args.model,
-        serial_number=args.serial,
-        purchase_date=purchase_dt,
-        acquisition_type=args.acquisition
-    )
+# --- Hardware Group ---
+@cli.group()
+def hardware():
+    """Manage hardware assets."""
+    pass
+
+@hardware.command('add')
+@opt_name
+@opt_category
+@opt_status
+@opt_sub_category
+@opt_model
+@opt_serial
+@opt_purchase_date
+@opt_acquisition
+@opt_assigned_user
+@opt_location
+@opt_notes
+# Make essential fields required via click.option(required=True)
+@click.option('--name', required=True, help='Unique asset name/tag (e.g., "ENG-LAP-005")')
+@click.option('--category', required=True, type=click.Choice(['Laptop', 'Desktop', 'Mouse', 'Keyboard', 'Server', 'Printer', 'Wifi', 'Phone', 'Storage Drive', 'Monitor', 'UPS', 'Other'], case_sensitive=False), help='Asset category')
+@click.option('--status', required=True, type=click.Choice(['New', 'Okay', 'Needs Repair', 'Dead', 'Deployed', 'Stored'], case_sensitive=False), help='Current status')
+def add_hardware(**kwargs):
+    """Adds a new hardware asset."""
+    # kwargs directly maps option names (with dashes converted to underscores)
+    # Filter out None values explicitly if model doesn't handle them well,
+    # but dataclasses usually do.
+    asset_data = {k: v for k, v in kwargs.items() if v is not None}
+    asset = models.HardwareAsset(**asset_data)
     asset_id = crud.add_hardware_asset(asset)
-    if asset_id > 0:
-        print(f"Successfully added hardware asset with ID: {asset_id}")
+    if asset_id:
+        click.echo(f"Successfully added hardware asset with ID: {asset_id}")
     else:
-        print("Failed to add hardware asset.")
+        click.echo("Failed to add hardware asset.", err=True)
 
-def handle_list_hardware(args):
-    """Handler for 'hardware list' command."""
-    if args.id:
-        asset = crud.get_hardware_asset_by_id(args.id)
+@hardware.command('list')
+@click.option('--id', type=int, help='Show details for a specific hardware ID.')
+def list_hardware(id):
+    """Lists hardware assets."""
+    if id:
+        asset = crud.get_hardware_asset_by_id(id)
         if asset:
-            print("--- Hardware Asset Detail ---")
-            print(utils.format_asset(asset))
-             # Also list associated software
-            software_list = crud.get_software_for_hardware(args.id)
-            if software_list:
-                print("\n--- Associated Software/Info ---")
-                for sw in software_list:
-                    print(f"  - {utils.format_asset(sw)}")
+            click.echo("--- Hardware Asset Detail ---")
+            click.echo(utils.format_output(asset))
+            # Also list associated info
+            associated_infos = crud.get_info_for_hardware(id)
+            if associated_infos:
+                click.echo("\n--- Associated Info ---")
+                for info in associated_infos:
+                    click.echo(f"  Info ID: {info.id}, Type: {info.info_type}, Name: {info.name}")
+                    # Optionally print full details per info item:
+                    # click.echo(utils.format_output(info))
             else:
-                print("\nNo associated software/info found.")
+                click.echo("\nNo associated info found.")
         else:
-            print(f"Hardware asset with ID {args.id} not found.")
+            click.echo(f"Hardware asset with ID {id} not found.", err=True)
     else:
         assets = crud.get_all_hardware_assets()
         if assets:
-            print("--- All Hardware Assets ---")
+            click.echo("--- All Hardware Assets (Summary) ---")
             for asset in assets:
-                 # Simplified list view
-                print(f"ID: {asset.id}, Name: {asset.name}, Category: {asset.category}, Status: {asset.status}, Serial: {asset.serial_number}")
+                click.echo(f"ID: {asset.id:<4} Name: {asset.name:<20} Category: {asset.category:<12} Status: {asset.status:<12} Serial: {asset.serial_number or 'N/A'}")
         else:
-            print("No hardware assets found.")
+            click.echo("No hardware assets found.")
 
-def handle_update_hardware(args):
-    """Handler for 'hardware update' command."""
-    updates = {}
-    if args.name: updates['name'] = args.name
-    if args.category: updates['category'] = args.category
-    if args.status: updates['status'] = args.status
-    if args.model: updates['model'] = args.model
-    if args.serial: updates['serial_number'] = args.serial
-    if args.purchase_date:
-        dt = utils.parse_date(args.purchase_date)
-        if dt: updates['purchase_date'] = dt
-        else: return # Stop if date is invalid
-    if args.acquisition: updates['acquisition_type'] = args.acquisition
-
+@hardware.command('update')
+@click.argument('id', type=int)
+# Add all updatable fields as options (not required here)
+@opt_name
+@opt_category
+@opt_status
+@opt_sub_category
+@opt_model
+@opt_serial
+@opt_purchase_date
+@opt_acquisition
+@opt_assigned_user
+@opt_location
+@opt_notes
+def update_hardware(id, **kwargs):
+    """Updates an existing hardware asset."""
+    updates = {k: v for k, v in kwargs.items() if v is not None}
     if not updates:
-        print("No update fields provided. Use --name, --status, etc.")
+        click.echo("No update fields provided. Use options like --name, --status, etc.", err=True)
         return
 
-    if crud.update_hardware_asset(args.id, updates):
-        print(f"Successfully updated hardware asset ID: {args.id}")
+    if crud.update_hardware_asset(id, updates):
+        click.echo(f"Successfully updated hardware asset ID: {id}")
     else:
-        print(f"Failed to update hardware asset ID: {args.id}. It might not exist or an error occurred.")
+        # CRUD function already prints detailed errors
+        click.echo(f"Failed to update hardware asset ID: {id}.", err=True)
 
 
-def handle_delete_hardware(args):
-    """Handler for 'hardware delete' command."""
-    confirm = input(f"Are you sure you want to delete hardware asset ID {args.id} and ALL associated software/info? (yes/no): ")
-    if confirm.lower() == 'yes':
-        if crud.delete_hardware_asset(args.id):
-            print(f"Successfully deleted hardware asset ID: {args.id}")
-        else:
-            print(f"Failed to delete hardware asset ID: {args.id}. It might not exist.")
-    else:
-        print("Deletion cancelled.")
-
-
-def handle_add_software(args):
-    """Handler for 'software add' command."""
-    activation_dt = utils.parse_date(args.activation_date)
-    expiry_dt = utils.parse_date(args.expiry_date)
-
-    license_info = models.SoftwareLicense(
-        hardware_asset_id=args.hardware_id,
-        name=args.name,
-        license_type=args.type,
-        license_key=args.key,
-        ip_address=args.ip,
-        mac_address=args.mac,
-        imei=args.imei,
-        dns_servers=args.dns,
-        activation_date=activation_dt,
-        expiry_date=expiry_dt
-    )
-    license_id = crud.add_software_license(license_info)
-    if license_id > 0:
-        print(f"Successfully added software/license with ID: {license_id} for hardware ID: {args.hardware_id}")
-    else:
-        print("Failed to add software/license.")
-
-
-def handle_list_software(args):
-    """Handler for 'software list' command."""
-    if args.hardware_id:
-        software_list = crud.get_software_for_hardware(args.hardware_id)
-        if software_list:
-            print(f"--- Software/Info for Hardware ID: {args.hardware_id} ---")
-            for sw in software_list:
-                print(f"  ID: {sw.id}, Name: {sw.name}, Type: {sw.license_type}, Key: {sw.license_key or 'N/A'}, Expires: {sw.expiry_date or 'N/A'}")
-        else:
-            print(f"No software/info found for hardware ID: {args.hardware_id}.")
-    elif args.all:
-        all_software = crud.get_all_software_licenses()
-        if all_software:
-            print("--- All Software/License Records ---")
-            for sw in all_software:
-                 print(f"ID: {sw.id}, HW_ID: {sw.hardware_asset_id}, Name: {sw.name}, Type: {sw.license_type}")
-        else:
-            print("No software/license records found.")
-    else:
-         print("Use --hardware_id <ID> to list software for specific hardware, or --all to list everything.")
-
-
-def handle_update_software(args):
-    """Handler for 'software update' command."""
-    updates = {}
-    if args.name: updates['name'] = args.name
-    if args.type: updates['license_type'] = args.type
-    if args.key: updates['license_key'] = args.key
-    if args.ip: updates['ip_address'] = args.ip
-    if args.mac: updates['mac_address'] = args.mac
-    if args.imei: updates['imei'] = args.imei
-    if args.dns: updates['dns_servers'] = args.dns
-    if args.activation_date:
-        dt = utils.parse_date(args.activation_date)
-        if dt: updates['activation_date'] = dt
-        else: return
-    if args.expiry_date:
-        dt = utils.parse_date(args.expiry_date)
-        if dt: updates['expiry_date'] = dt
-        else: return
-    if args.hardware_id:
-        # Check if target hardware exists before allowing update
-        if crud.get_hardware_asset_by_id(args.hardware_id):
-            updates['hardware_asset_id'] = args.hardware_id
-        else:
-            print(f"Error: Target hardware asset ID {args.hardware_id} does not exist. Cannot move software.")
-            return
-
-    if not updates:
-        print("No update fields provided.")
+@hardware.command('delete')
+@click.argument('id', type=int)
+@click.option('--yes', is_flag=True, help='Skip confirmation prompt.')
+def delete_hardware(id, yes):
+    """Deletes a hardware asset and its associated info (use with caution!)."""
+    asset = crud.get_hardware_asset_by_id(id)
+    if not asset:
+        click.echo(f"Hardware asset with ID {id} not found.", err=True)
         return
 
-    if crud.update_software_license(args.id, updates):
-        print(f"Successfully updated software/license ID: {args.id}")
-    else:
-        print(f"Failed to update software/license ID: {args.id}. It might not exist or an error occurred.")
+    if not yes:
+        click.confirm(f"Are you sure you want to delete hardware '{asset.name}' (ID: {id}) and ALL associated info?", abort=True)
 
-def handle_delete_software(args):
-    """Handler for 'software delete' command."""
-    confirm = input(f"Are you sure you want to delete software/license record ID {args.id}? (yes/no): ")
-    if confirm.lower() == 'yes':
-        if crud.delete_software_license(args.id):
-            print(f"Successfully deleted software/license ID: {args.id}")
-        else:
-            print(f"Failed to delete software/license ID: {args.id}. It might not exist.")
+    if crud.delete_hardware_asset(id):
+        click.echo(f"Successfully deleted hardware asset ID: {id}")
     else:
-        print("Deletion cancelled.")
+        click.echo(f"Failed to delete hardware asset ID: {id}.", err=True)
+
+
+@hardware.command('search')
+# Add specific search options
+@opt_name
+@opt_category
+@opt_status
+@opt_sub_category
+@opt_model
+@opt_serial
+@opt_assigned_user
+@opt_location
+@opt_acquisition
+def search_hardware(**kwargs):
+    """Searches for hardware assets based on criteria."""
+    criteria = {k: v for k, v in kwargs.items() if v is not None}
+    if not criteria:
+        click.echo("Please provide at least one search criterion using options like --name, --status, etc.", err=True)
+        return
+
+    click.echo(f"Searching hardware with criteria: {criteria}")
+    results = crud.search_hardware_assets(criteria)
+
+    if results:
+        click.echo("--- Search Results ---")
+        for asset in results:
+             click.echo(f"ID: {asset.id:<4} Name: {asset.name:<20} Category: {asset.category:<12} Status: {asset.status:<12} Serial: {asset.serial_number or 'N/A'}")
+    else:
+        click.echo("No hardware assets found matching the criteria.")
+
+
+# --- Associated Info Group ---
+@cli.group('info') # Renamed from 'software'
+def associated_info():
+    """Manage associated info (licenses, network, warranty, notes, etc.)."""
+    pass
+
+@associated_info.command('add')
+@opt_info_hw_id
+@opt_info_type
+@opt_info_name
+# Make these optional for add
+@opt_info_details
+@opt_info_key
+@opt_info_activation_date
+@opt_info_expiry_date
+@opt_info_notes
+def add_info(**kwargs):
+    """Adds associated info linked to a hardware asset."""
+    # Perform specific validation if needed
+    # e.g., check IP/MAC format if type is Network and details contains them
+    if kwargs.get('info_type') == 'Network' and kwargs.get('details'):
+        # Basic check - could be more sophisticated parsing
+        if ':' in kwargs['details'] and not utils.is_valid_mac(kwargs['details'].split()[0]): # Rough MAC check
+             click.echo(f"Warning: Potential invalid MAC format in details: {kwargs['details']}", err=True)
+        if '.' in kwargs['details'] and not utils.is_valid_ip(kwargs['details'].split()[0]): # Rough IP check
+            click.echo(f"Warning: Potential invalid IP format in details: {kwargs['details']}", err=True)
+
+    info_data = {k: v for k, v in kwargs.items() if v is not None}
+    info = models.AssociatedInfo(**info_data)
+
+    info_id = crud.add_associated_info(info)
+    if info_id:
+        click.echo(f"Successfully added associated info with ID: {info_id} for hardware ID: {info.hardware_asset_id}")
+    else:
+        click.echo("Failed to add associated info.", err=True)
+
+
+@associated_info.command('list')
+@click.option('--hardware-id', type=int, help='List info for a specific hardware ID.')
+@click.option('--all', is_flag=True, help='List all associated info records (use carefully).')
+def list_info(hardware_id, all):
+    """Lists associated info records."""
+    if hardware_id:
+        infos = crud.get_info_for_hardware(hardware_id)
+        if infos:
+            click.echo(f"--- Associated Info for Hardware ID: {hardware_id} ---")
+            for info in infos:
+                expiry = f", Expires: {info.expiry_date}" if info.expiry_date else ""
+                click.echo(f"  Info ID: {info.id:<4} Type: {info.info_type:<15} Name: {info.name:<25}{expiry}")
+        else:
+            click.echo(f"No associated info found for hardware ID: {hardware_id}.")
+    elif all:
+         # Consider adding pagination or limits if this list gets very long
+        click.echo("Listing all associated info records is not implemented yet. Use --hardware-id.")
+        # all_info = crud.get_all_associated_info() # Need to implement this in crud.py if needed
+        # if all_info:
+        #     click.echo("--- All Associated Info Records ---")
+        #     for info in all_info:
+        #          click.echo(f"ID: {info.id}, HW_ID: {info.hardware_asset_id}, Type: {info.info_type}, Name: {info.name}")
+        # else:
+        #     click.echo("No associated info records found.")
+    else:
+         click.echo("Use --hardware-id <ID> to list info for specific hardware.", err=True)
+
+
+@associated_info.command('update')
+@click.argument('id', type=int)
+# Add updatable fields as options
+@click.option('--hardware-id', type=int, help='Move info to a different hardware asset ID.') # Explicit option
+@opt_info_type
+@opt_info_name
+@opt_info_details
+@opt_info_key
+@opt_info_activation_date
+@opt_info_expiry_date
+@opt_info_notes
+def update_info(id, **kwargs):
+    """Updates an existing associated info record."""
+    updates = {k: v for k, v in kwargs.items() if v is not None}
+    if not updates:
+        click.echo("No update fields provided.", err=True)
+        return
+
+    # Validation before update if moving hardware
+    if 'hardware_id' in updates:
+        if not crud.get_hardware_asset_by_id(updates['hardware_id']):
+             click.echo(f"Error: Target hardware asset ID {updates['hardware_id']} does not exist. Cannot move info.", err=True)
+             return
+
+    if crud.update_associated_info(id, updates):
+        click.echo(f"Successfully updated associated info ID: {id}")
+    else:
+        click.echo(f"Failed to update associated info ID: {id}.", err=True)
+
+
+@associated_info.command('delete')
+@click.argument('id', type=int)
+@click.option('--yes', is_flag=True, help='Skip confirmation prompt.')
+def delete_info(id, yes):
+    """Deletes an associated info record."""
+    info = crud.get_associated_info_by_id(id)
+    if not info:
+        click.echo(f"Associated info record with ID {id} not found.", err=True)
+        return
+
+    if not yes:
+        click.confirm(f"Are you sure you want to delete info '{info.name}' (ID: {id})?", abort=True)
+
+    if crud.delete_associated_info(id):
+        click.echo(f"Successfully deleted associated info ID: {id}")
+    else:
+        click.echo(f"Failed to delete associated info ID: {id}.", err=True)
+
+
+# --- Reporting Group ---
+@cli.group()
+def report():
+    """Generate reports about the inventory."""
+    pass
+
+@report.command('status')
+@click.argument('status', type=click.Choice(['New', 'Okay', 'Needs Repair', 'Dead', 'Deployed', 'Stored'], case_sensitive=False))
+def report_by_status(status):
+    """Report hardware assets by status."""
+    click.echo(f"--- Assets with Status: {status} ---")
+    assets = reporting.get_assets_by_status(status)
+    if assets:
+        for asset in assets:
+            click.echo(f"ID: {asset.id:<4} Name: {asset.name:<20} Model: {asset.model or 'N/A'} Serial: {asset.serial_number or 'N/A'}")
+    else:
+        click.echo(f"No assets found with status '{status}'.")
+
+
+@report.command('expiring')
+@click.option('--days', type=int, default=30, help='Number of days within which items are expiring.')
+def report_expiring_info(days):
+    """Report licenses/warranties expiring soon."""
+    click.echo(f"--- Info Expiring within {days} Days ---")
+    infos = reporting.get_info_expiring_soon(days)
+    if infos:
+        for info in infos:
+            # Access the temporarily added hardware name
+            hw_name = getattr(info, 'hardware_name', 'Unknown Hardware')
+            click.echo(f"Info ID: {info.id:<4} Type: {info.info_type:<15} Name: {info.name:<25} Expires: {info.expiry_date} (Hardware: {hw_name} [ID: {info.hardware_asset_id}])")
+    else:
+        click.echo(f"No relevant items found expiring within {days} days.")

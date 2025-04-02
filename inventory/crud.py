@@ -1,212 +1,267 @@
 # inventory/crud.py
-from .database import get_db_connection, close_db_connection
-from .models import HardwareAsset, SoftwareLicense
+import sqlite3
+from typing import List, Optional, Dict, Any
+from .database import get_db_connection, close_db_connection, DEFAULT_DATABASE_PATH
+from .models import HardwareAsset, AssociatedInfo
 from datetime import date
-from typing import List, Optional
+
+# --- Helper ---
+def _dict_factory(cursor, row):
+    """Converts tuple rows to dictionaries."""
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
+def _get_conn_cursor(db_path=DEFAULT_DATABASE_PATH):
+    conn = get_db_connection(db_path)
+    # Redundant but safe: ensure foreign keys are on for this connection
+    conn.execute("PRAGMA foreign_keys = ON;")
+    # Use the standard dictionary row factory if preferred over sqlite3.Row
+    # conn.row_factory = _dict_factory
+    return conn, conn.cursor()
 
 # --- Hardware Asset CRUD ---
 
-def add_hardware_asset(asset: HardwareAsset) -> int:
-    """Adds a new hardware asset to the database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def add_hardware_asset(asset: HardwareAsset, db_path=DEFAULT_DATABASE_PATH) -> int | None:
+    conn, cursor = _get_conn_cursor(db_path)
     try:
         cursor.execute(
             '''INSERT INTO hardware_assets
-               (name, category, status, model, serial_number, purchase_date, acquisition_type)
-               VALUES (?, ?, ?, ?, ?, ?, ?)''',
-            (asset.name, asset.category, asset.status, asset.model,
-             asset.serial_number, asset.purchase_date, asset.acquisition_type)
+               (name, category, sub_category, status, model, serial_number,
+                purchase_date, acquisition_type, assigned_user, location, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (asset.name, asset.category, asset.sub_category, asset.status, asset.model,
+             asset.serial_number, asset.purchase_date, asset.acquisition_type,
+             asset.assigned_user, asset.location, asset.notes)
         )
         conn.commit()
         asset_id = cursor.lastrowid
         return asset_id
     except sqlite3.IntegrityError as e:
-        print(f"Error adding hardware: {e}") # e.g., Serial number already exists
-        return -1 # Indicate failure
+        print(f"Error adding hardware: {e}. Check unique constraints (name, serial_number).")
+        return None
+    except sqlite3.Error as e:
+        print(f"Database error adding hardware: {e}")
+        return None
     finally:
         close_db_connection(conn)
 
-
-def get_hardware_asset_by_id(asset_id: int) -> Optional[HardwareAsset]:
-    """Retrieves a hardware asset by its ID."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def get_hardware_asset_by_id(asset_id: int, db_path=DEFAULT_DATABASE_PATH) -> Optional[HardwareAsset]:
+    conn, cursor = _get_conn_cursor(db_path)
     cursor.execute("SELECT * FROM hardware_assets WHERE id = ?", (asset_id,))
     row = cursor.fetchone()
     close_db_connection(conn)
-    if row:
-        return HardwareAsset(**dict(row)) # Convert row object to dictionary then to dataclass
-    return None
+    return HardwareAsset(**dict(row)) if row else None
 
-def get_all_hardware_assets() -> List[HardwareAsset]:
-    """Retrieves all hardware assets from the database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def get_hardware_asset_by_name(name: str, db_path=DEFAULT_DATABASE_PATH) -> Optional[HardwareAsset]:
+    conn, cursor = _get_conn_cursor(db_path)
+    cursor.execute("SELECT * FROM hardware_assets WHERE name = ?", (name,))
+    row = cursor.fetchone()
+    close_db_connection(conn)
+    return HardwareAsset(**dict(row)) if row else None
+
+def get_all_hardware_assets(db_path=DEFAULT_DATABASE_PATH) -> List[HardwareAsset]:
+    conn, cursor = _get_conn_cursor(db_path)
     cursor.execute("SELECT * FROM hardware_assets ORDER BY name")
     rows = cursor.fetchall()
     close_db_connection(conn)
     return [HardwareAsset(**dict(row)) for row in rows]
 
-def update_hardware_asset(asset_id: int, updates: dict):
-    """Updates specific fields of a hardware asset."""
-    if not updates:
-        print("No updates provided.")
-        return False
-
+def update_hardware_asset(asset_id: int, updates: Dict[str, Any], db_path=DEFAULT_DATABASE_PATH) -> bool:
+    conn, cursor = _get_conn_cursor(db_path)
     fields = []
     values = []
-    for key, value in updates.items():
-        # Basic validation - ensure key is a valid column name (improve this for security)
-        if key in ['name', 'category', 'status', 'model', 'serial_number', 'purchase_date', 'acquisition_type']:
-             # Convert date objects to strings if they are dates
-            if isinstance(value, date):
-                value = value.isoformat()
-            fields.append(f"{key} = ?")
-            values.append(value)
-        else:
-            print(f"Warning: Invalid field '{key}' ignored during update.")
+    valid_keys = [f.name for f in HardwareAsset.__dataclass_fields__.values() if f.name not in ['id', 'created_at', 'updated_at']]
 
+    for key, value in updates.items():
+        if key in valid_keys:
+            fields.append(f"{key} = ?")
+             # Convert date objects to strings if they are dates for SQL
+            if isinstance(value, date):
+                values.append(value.isoformat())
+            else:
+                values.append(value)
+        else:
+            print(f"Warning: Invalid field '{key}' ignored during hardware update.")
 
     if not fields:
         print("No valid fields to update.")
         return False
 
-    values.append(asset_id) # Add asset_id for the WHERE clause
+    values.append(asset_id)
     sql = f"UPDATE hardware_assets SET {', '.join(fields)} WHERE id = ?"
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
     try:
         cursor.execute(sql, tuple(values))
         conn.commit()
-        return cursor.rowcount > 0 # Return True if update affected rows
+        success = cursor.rowcount > 0
+        if not success:
+            print(f"Warning: Hardware asset with ID {asset_id} not found for update.")
+        return success
+    except sqlite3.IntegrityError as e:
+        print(f"Error updating hardware asset {asset_id}: {e}. Check unique constraints.")
+        return False
     except sqlite3.Error as e:
-        print(f"Error updating hardware asset {asset_id}: {e}")
+        print(f"Database error updating hardware asset {asset_id}: {e}")
         return False
     finally:
         close_db_connection(conn)
 
-
-def delete_hardware_asset(asset_id: int) -> bool:
-    """Deletes a hardware asset by its ID. (Cascades to software_licenses)"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+def delete_hardware_asset(asset_id: int, db_path=DEFAULT_DATABASE_PATH) -> bool:
+    conn, cursor = _get_conn_cursor(db_path)
     try:
-        # Ensure foreign keys are enabled if not enabled by default
-        cursor.execute("PRAGMA foreign_keys = ON;")
         cursor.execute("DELETE FROM hardware_assets WHERE id = ?", (asset_id,))
         conn.commit()
-        return cursor.rowcount > 0 # True if a row was deleted
+        success = cursor.rowcount > 0
+        if not success:
+             print(f"Warning: Hardware asset with ID {asset_id} not found for deletion.")
+        return success
     except sqlite3.Error as e:
         print(f"Error deleting hardware asset {asset_id}: {e}")
         return False
     finally:
         close_db_connection(conn)
 
+def search_hardware_assets(criteria: Dict[str, Any], db_path=DEFAULT_DATABASE_PATH) -> List[HardwareAsset]:
+    """Searches hardware assets based on flexible criteria."""
+    conn, cursor = _get_conn_cursor(db_path)
+    where_clauses = []
+    params = []
+    # Define searchable fields and how to search them (exact match, LIKE, etc.)
+    searchable_fields = {
+        'name': 'LIKE', 'category': '=', 'sub_category': '=', 'status': '=',
+        'model': 'LIKE', 'serial_number': 'LIKE', 'assigned_user': 'LIKE',
+        'location': 'LIKE', 'acquisition_type': '=',
+        # Add more fields as needed
+    }
 
-# --- Software/License CRUD ---
+    for key, value in criteria.items():
+        if value is not None and key in searchable_fields:
+            operator = searchable_fields[key]
+            if operator == 'LIKE':
+                where_clauses.append(f"{key} LIKE ?")
+                params.append(f"%{value}%") # Wildcard search
+            else: # Exact match =
+                where_clauses.append(f"{key} = ?")
+                params.append(value)
 
-def add_software_license(license_info: SoftwareLicense) -> int:
-    """Adds new software/license information linked to hardware."""
-    # Check if hardware exists first
-    if not get_hardware_asset_by_id(license_info.hardware_asset_id):
-         print(f"Error: Hardware asset with ID {license_info.hardware_asset_id} does not exist.")
-         return -1
+    if not where_clauses:
+        return get_all_hardware_assets(db_path) # Return all if no criteria
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    sql = f"SELECT * FROM hardware_assets WHERE {' AND '.join(where_clauses)} ORDER BY name"
+
     try:
-        cursor.execute(
-            '''INSERT INTO software_licenses
-               (hardware_asset_id, name, license_type, license_key, ip_address,
-                mac_address, imei, dns_servers, activation_date, expiry_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            (license_info.hardware_asset_id, license_info.name, license_info.license_type,
-             license_info.license_key, license_info.ip_address, license_info.mac_address,
-             license_info.imei, license_info.dns_servers, license_info.activation_date,
-             license_info.expiry_date)
-        )
-        conn.commit()
-        license_id = cursor.lastrowid
-        return license_id
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall()
+        return [HardwareAsset(**dict(row)) for row in rows]
     except sqlite3.Error as e:
-        print(f"Error adding software/license: {e}")
-        return -1
+        print(f"Error searching hardware: {e}")
+        return []
     finally:
         close_db_connection(conn)
 
-def get_software_for_hardware(hardware_asset_id: int) -> List[SoftwareLicense]:
-    """Retrieves all software/licenses linked to a specific hardware asset."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+
+# --- Associated Info CRUD --- (Similar updates: add db_path, improve error handling)
+
+def add_associated_info(info: AssociatedInfo, db_path=DEFAULT_DATABASE_PATH) -> int | None:
+    # Check if hardware exists first
+    if not get_hardware_asset_by_id(info.hardware_asset_id, db_path):
+         print(f"Error: Hardware asset with ID {info.hardware_asset_id} does not exist.")
+         return None
+
+    conn, cursor = _get_conn_cursor(db_path)
+    try:
+        cursor.execute(
+            '''INSERT INTO associated_info
+               (hardware_asset_id, info_type, name, details, license_key,
+                activation_date, expiry_date, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (info.hardware_asset_id, info.info_type, info.name, info.details,
+             info.license_key, info.activation_date, info.expiry_date, info.notes)
+        )
+        conn.commit()
+        info_id = cursor.lastrowid
+        return info_id
+    except sqlite3.Error as e:
+        print(f"Database error adding associated info: {e}")
+        return None
+    finally:
+        close_db_connection(conn)
+
+
+def get_info_for_hardware(hardware_asset_id: int, db_path=DEFAULT_DATABASE_PATH) -> List[AssociatedInfo]:
+    conn, cursor = _get_conn_cursor(db_path)
     cursor.execute(
-        "SELECT * FROM software_licenses WHERE hardware_asset_id = ? ORDER BY name",
+        "SELECT * FROM associated_info WHERE hardware_asset_id = ? ORDER BY info_type, name",
         (hardware_asset_id,)
     )
     rows = cursor.fetchall()
     close_db_connection(conn)
-    return [SoftwareLicense(**dict(row)) for row in rows]
+    return [AssociatedInfo(**dict(row)) for row in rows]
 
-def get_all_software_licenses() -> List[SoftwareLicense]:
-    """Retrieves all software/licenses from the database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM software_licenses ORDER BY hardware_asset_id, name")
-    rows = cursor.fetchall()
+
+def get_associated_info_by_id(info_id: int, db_path=DEFAULT_DATABASE_PATH) -> Optional[AssociatedInfo]:
+    conn, cursor = _get_conn_cursor(db_path)
+    cursor.execute("SELECT * FROM associated_info WHERE id = ?", (info_id,))
+    row = cursor.fetchone()
     close_db_connection(conn)
-    return [SoftwareLicense(**dict(row)) for row in rows]
+    return AssociatedInfo(**dict(row)) if row else None
 
-def update_software_license(license_id: int, updates: dict):
-    """Updates specific fields of a software/license record."""
-    # Similar logic to update_hardware_asset, adapt fields and table name
-    if not updates:
-        print("No updates provided.")
-        return False
 
+def update_associated_info(info_id: int, updates: Dict[str, Any], db_path=DEFAULT_DATABASE_PATH) -> bool:
+    conn, cursor = _get_conn_cursor(db_path)
     fields = []
     values = []
-    valid_keys = ['name', 'license_type', 'license_key', 'ip_address', 'mac_address',
-                  'imei', 'dns_servers', 'activation_date', 'expiry_date', 'hardware_asset_id']
+    valid_keys = [f.name for f in AssociatedInfo.__dataclass_fields__.values() if f.name not in ['id', 'created_at', 'updated_at']]
 
     for key, value in updates.items():
         if key in valid_keys:
-            if isinstance(value, date):
-                value = value.isoformat()
             fields.append(f"{key} = ?")
-            values.append(value)
+            if isinstance(value, date):
+                values.append(value.isoformat())
+            else:
+                values.append(value)
         else:
-             print(f"Warning: Invalid field '{key}' ignored during update.")
+            print(f"Warning: Invalid field '{key}' ignored during info update.")
 
     if not fields:
-        print("No valid fields to update.")
+        print("No valid fields to update for associated info.")
         return False
 
-    values.append(license_id) # For WHERE clause
-    sql = f"UPDATE software_licenses SET {', '.join(fields)} WHERE id = ?"
+    values.append(info_id)
+    sql = f"UPDATE associated_info SET {', '.join(fields)} WHERE id = ?"
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
     try:
         cursor.execute(sql, tuple(values))
         conn.commit()
-        return cursor.rowcount > 0
+        success = cursor.rowcount > 0
+        if not success:
+            print(f"Warning: Associated info with ID {info_id} not found for update.")
+        return success
+    except sqlite3.IntegrityError as e: # e.g. moving to non-existent hardware_id if foreign key is checked strictly
+        print(f"Error updating associated info {info_id}: {e}.")
+        return False
     except sqlite3.Error as e:
-        print(f"Error updating software/license {license_id}: {e}")
+        print(f"Database error updating associated info {info_id}: {e}")
         return False
     finally:
         close_db_connection(conn)
 
-def delete_software_license(license_id: int) -> bool:
-    """Deletes a software/license record by its ID."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+
+def delete_associated_info(info_id: int, db_path=DEFAULT_DATABASE_PATH) -> bool:
+    conn, cursor = _get_conn_cursor(db_path)
     try:
-        cursor.execute("DELETE FROM software_licenses WHERE id = ?", (license_id,))
+        cursor.execute("DELETE FROM associated_info WHERE id = ?", (info_id,))
         conn.commit()
-        return cursor.rowcount > 0
+        success = cursor.rowcount > 0
+        if not success:
+            print(f"Warning: Associated info with ID {info_id} not found for deletion.")
+        return success
     except sqlite3.Error as e:
-        print(f"Error deleting software/license {license_id}: {e}")
+        print(f"Error deleting associated info {info_id}: {e}")
         return False
     finally:
         close_db_connection(conn)
+
+# Add search for associated info if needed (similar to hardware search)

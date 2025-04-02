@@ -1,34 +1,37 @@
 # inventory/models.py
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
-# Using dataclasses for simplicity and type hinting
-# Optional[...] means the field can be None
-
+# Use Optional[] for fields that can be NULL in the database
 @dataclass
 class HardwareAsset:
-    id: Optional[int] = None # Assigned by the database
+    id: Optional[int] = None
     name: str
-    category: str # e.g., 'Laptop', 'Desktop'
-    status: str # e.g., 'New', 'Okay'
+    category: str
+    sub_category: Optional[str] = None
+    status: str
     model: Optional[str] = None
     serial_number: Optional[str] = None
     purchase_date: Optional[date] = None
-    acquisition_type: Optional[str] = None # e.g., 'Purchased', 'Rented'
-    # Timestamps usually handled by DB, not needed here unless specifically fetched
+    acquisition_type: Optional[str] = None
+    assigned_user: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None # Fetch if needed
+    updated_at: Optional[datetime] = None # Fetch if needed
+
 
 @dataclass
-class SoftwareLicense:
-    id: Optional[int] = None # Assigned by the database
-    hardware_asset_id: int # Link to HardwareAsset
-    name: str # e.g., 'Windows 11 Pro', 'Office 365 E3'
-    license_type: str # e.g., 'OS', 'Office Suite'
+class AssociatedInfo:
+    id: Optional[int] = None
+    hardware_asset_id: int
+    info_type: str
+    name: str
+    details: Optional[str] = None
     license_key: Optional[str] = None
-    ip_address: Optional[str] = None
-    mac_address: Optional[str] = None
-    imei: Optional[str] = None
-    dns_servers: Optional[str] = None
     activation_date: Optional[date] = None
     expiry_date: Optional[date] = None
-     # Timestamps usually handled by DB
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

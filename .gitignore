@@ -24,3 +24,10 @@ venv.bak/
 
 # Optional data directory (if you keep DB outside source control)
 data/
+
+# ... (previous entries) ...
+
+# Testing
+.pytest_cache/
+test_inventory.db # Ignore the test database file
+test_inventory.db-journal # And its journal file
