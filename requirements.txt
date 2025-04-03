@@ -1,9 +1,0 @@
-click>=8.0
-pytest>=7.0
-Flask>=2.3,<3.0 # Specify a compatible range
-Flask-WTF>=1.1,<2.0
-WTForms[email]>=3.0,<4.0 # Includes email validator
-Flask-Login>=0.6,<0.7
-Flask-Bcrypt>=1.0,<2.0
-python-dotenv>=1.0,<2.0
-Bcrypt>=4.0,<5.0 # Bcrypt library itself
