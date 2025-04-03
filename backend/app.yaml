@@ -1,0 +1,20 @@
+runtime: python39
+service: backend-api
+
+env_variables:
+  DJANGO_SETTINGS_MODULE: "inventory_project.settings"
+  SECRET_KEY: "your-secret-key"  # Replace with actual secret key in production
+  DEBUG: "False"
+  ALLOWED_HOSTS: "*"
+  DATABASE_URL: "sqlite:///db.sqlite3"  # Use Cloud SQL in production
+
+handlers:
+- url: /static
+  static_dir: staticfiles/
+  secure: always
+
+- url: /.*
+  script: auto
+  secure: always
+
+entrypoint: gunicorn -b :$PORT inventory_project.wsgi 

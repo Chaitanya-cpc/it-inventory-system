@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Management System - TRON Legacy</title>
+  <!-- Load React -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background-color: #000;
+      color: #fff;
+    }
+    
+    .tron-glow {
+      box-shadow: 0 0 10px #0ff, 0 0 20px rgba(0, 255, 255, 0.3);
+    }
+    
+    .tron-border {
+      border: 1px solid #0ff;
+    }
+    
+    .tron-text {
+      text-shadow: 0 0 5px #0ff;
+    }
+    
+    .grid-bg {
+      background-image: 
+        radial-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+        radial-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+      background-size: 50px 50px;
+      background-position: 0 0, 25px 25px;
+    }
+    
+    .tron-gradient {
+      background: linear-gradient(180deg, #000000 0%, #002634 100%);
+    }
+    
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #000;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #0ff;
+      border-radius: 4px;
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tron: {
+              black: '#000000',
+              darkblue: '#002634',
+              blue: '#007a99',
+              cyan: '#00F0FF',
+              white: '#FFFFFF',
+              orange: '#FF5F1F',
+              red: '#FF3333',
+            }
+          },
+          fontFamily: {
+            orbitron: ['Orbitron', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+</head>
+<body class="font-orbitron grid-bg">
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    // Animation hook
+    function useGlowPulse(interval = 2000) {
+      const [glowIntensity, setGlowIntensity] = React.useState(1);
+      
+      React.useEffect(() => {
+        const timer = setInterval(() => {
+          setGlowIntensity(prev => prev === 1 ? 1.5 : 1);
+        }, interval);
+        
+        return () => clearInterval(timer);
+      }, [interval]);
+      
+      return {
+        style: {
+          filter: `brightness(${glowIntensity})`,
+          transition: 'filter 1s ease-in-out'
+        }
+      };
+    }
+    
+    // Simple components
+    function NavItem({ href, icon, label, isActive }) {
+      return (
+        <a
+          href={href}
+          className={`flex items-center px-4 py-3 text-sm font-medium rounded transition ${
+            isActive 
+              ? 'bg-tron-blue text-tron-cyan tron-glow border border-tron-cyan' 
+              : 'text-tron-cyan hover:bg-tron-darkblue hover:border hover:border-tron-cyan'
+          }`}
+        >
+          {icon}
+          <span className="ml-3">{label}</span>
+        </a>
+      );
+    }
+    
+    function Sidebar() {
+      const pulse = useGlowPulse(3000);
+      
+      return (
+        <div className="flex flex-col w-64 bg-black border-r border-tron-cyan/30 h-screen">
+          <div className="p-4 border-b border-tron-cyan/30" {...pulse}>
+            <h1 className="text-xl font-bold text-tron-cyan tron-text tracking-wider">INVENTORY SYSTEM</h1>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className="space-y-2">
+              <p className="text-xs uppercase text-tron-cyan/70 font-semibold px-2 tracking-wider">Main</p>
+              <NavItem 
+                href="#dashboard" 
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
+                label="DASHBOARD"
+                isActive={true}
+              />
+            </div>
+            
+            <div className="space-y-2 pt-4">
+              <p className="text-xs uppercase text-tron-cyan/70 font-semibold px-2 tracking-wider">Inventory</p>
+              <NavItem 
+                href="#tech-products" 
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>}
+                label="TECH PRODUCTS" 
+                isActive={false}
+              />
+              <NavItem 
+                href="#wires" 
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" /></svg>}
+                label="WIRES & CABLES" 
+                isActive={false}
+              />
+              <NavItem 
+                href="#hardware" 
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>}
+                label="HARDWARE" 
+                isActive={false}
+              />
+            </div>
+            
+            <div className="space-y-2 pt-4">
+              <p className="text-xs uppercase text-tron-cyan/70 font-semibold px-2 tracking-wider">Digital</p>
+              <NavItem 
+                href="#subscriptions" 
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                label="SUBSCRIPTIONS" 
+                isActive={false}
+              />
+              <NavItem 
+                href="#credentials" 
+                icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>}
+                label="CREDENTIALS" 
+                isActive={false}
+              />
+            </div>
+            
+            <div className="mt-auto pt-8">
+              <div className="tron-border rounded-lg p-4 text-center text-tron-cyan/80 text-xs">
+                <p>SYSTEM STATUS: ONLINE</p>
+                <p className="mt-1">USER: FLYNN</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    function TronCard({ title, value, href, label, color = "text-tron-cyan", icon }) {
+      const pulse = useGlowPulse(Math.random() * 2000 + 2000);
+      
+      return (
+        <div className="bg-black rounded-lg border border-tron-cyan/30 hover:border-tron-cyan/80 shadow-lg p-6 relative overflow-hidden transition-all duration-300 hover:shadow-tron-cyan/30 group">
+          {/* Decorative corner elements */}
+          <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-tron-cyan" />
+          <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-tron-cyan" />
+          <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-tron-cyan" />
+          <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-tron-cyan" />
+          
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-lg font-semibold text-white tracking-wide">{title}</h2>
+              <p className={`text-3xl font-bold ${color} mt-2`} {...pulse}>{value}</p>
+            </div>
+            {icon && <div className="text-tron-cyan/70 group-hover:text-tron-cyan">{icon}</div>}
+          </div>
+          
+          <a href={href} className="text-sm text-tron-cyan/70 hover:text-tron-cyan mt-4 block group-hover:border-b group-hover:border-tron-cyan/50 inline-block transition-all">
+            {label} <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+          </a>
+        </div>
+      );
+    }
+    
+    // Main Dashboard component
+    function Dashboard() {
+      const dashboardPulse = useGlowPulse(5000);
+      
+      // Mock data
+      const stats = {
+        total_assets: 42,
+        total_categories: 12,
+        expiring_warranties: 3,
+        expiring_subscriptions: 2,
+      };
+      
+      const recentAssets = [
+        { id: 1, name: 'ENCOM 5200 Workstation', category: 'Tech Products', added: '2023-03-15' },
+        { id: 2, name: 'Identity Disk Cable', category: 'Wires & Cables', added: '2023-03-10' },
+        { id: 3, name: 'Quantum Storage Array', category: 'Hardware', added: '2023-03-05' },
+      ];
+      
+      return (
+        <div className="p-8 max-w-7xl">
+          <div className="mb-8 border-b border-tron-cyan/30 pb-4">
+            <h1 className="text-3xl font-bold text-white tracking-wide tron-text">SYSTEM DASHBOARD</h1>
+            <p className="text-tron-cyan/80 mt-1 tracking-wide">WELCOME TO THE GRID</p>
+          </div>
+          
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <TronCard 
+              title="Total Assets" 
+              value={stats.total_assets}
+              href="#assets" 
+              label="VIEW ALL ASSETS"
+              icon={<svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
+            />
+            
+            <TronCard 
+              title="Categories" 
+              value={stats.total_categories}
+              href="#categories" 
+              label="MANAGE CATEGORIES"
+              icon={<svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>}
+            />
+            
+            <TronCard 
+              title="Expiring Warranties" 
+              value={stats.expiring_warranties}
+              href="#warranties" 
+              label="VIEW EXPIRING WARRANTIES"
+              color="text-tron-orange"
+              icon={<svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            />
+            
+            <TronCard 
+              title="Expiring Subscriptions" 
+              value={stats.expiring_subscriptions}
+              href="#subscriptions" 
+              label="VIEW EXPIRING SUBSCRIPTIONS"
+              color="text-tron-red"
+              icon={<svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>}
+            />
+          </div>
+          
+          {/* Recent Assets */}
+          <div className="bg-black rounded-lg shadow-lg border border-tron-cyan/30 overflow-hidden mb-8 relative" {...dashboardPulse}>
+            {/* Decorative corner elements */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-tron-cyan" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-tron-cyan" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-tron-cyan" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-tron-cyan" />
+            
+            <div className="p-6 border-b border-tron-cyan/30 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-white tracking-wide">RECENTLY ADDED ASSETS</h2>
+              <span className="text-xs text-tron-cyan/70 tracking-wider">LAST UPDATED: 00:15:22</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-tron-cyan/30">
+                <thead className="bg-black/70">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-tron-cyan uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-tron-cyan uppercase tracking-wider">Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-tron-cyan uppercase tracking-wider">Added On</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-tron-cyan uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-black divide-y divide-tron-cyan/20">
+                  {recentAssets.map((asset) => (
+                    <tr key={asset.id} className="hover:bg-tron-cyan/5 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                        {asset.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-tron-cyan/70">
+                        {asset.category}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-tron-cyan/70">
+                        {asset.added}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href={`#asset-${asset.id}`} className="text-tron-cyan hover:text-tron-cyan/100 hover:border-b hover:border-tron-cyan">
+                          VIEW
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* System Monitor */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-black rounded-lg shadow-lg border border-tron-cyan/30 p-6 relative">
+              {/* Decorative elements */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-tron-cyan" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-tron-cyan" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-tron-cyan" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-tron-cyan" />
+              
+              <h2 className="text-lg font-semibold text-white mb-4 tracking-wide">SYSTEM STATUS</h2>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-tron-cyan/70">Backend API</span>
+                  <span className="text-tron-cyan px-2 py-1 rounded border border-tron-cyan/50 text-xs">ONLINE</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-tron-cyan/70">Database</span>
+                  <span className="text-tron-cyan px-2 py-1 rounded border border-tron-cyan/50 text-xs">ONLINE</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-tron-cyan/70">Storage</span>
+                  <span className="text-tron-cyan px-2 py-1 rounded border border-tron-cyan/50 text-xs">ONLINE</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-tron-cyan/70">Authentication</span>
+                  <span className="text-tron-cyan px-2 py-1 rounded border border-tron-cyan/50 text-xs">ONLINE</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-black rounded-lg shadow-lg border border-tron-cyan/30 p-6 relative">
+              {/* Decorative elements */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-tron-cyan" />
+              <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-tron-cyan" />
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-tron-cyan" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-tron-cyan" />
+              
+              <h2 className="text-lg font-semibold text-white mb-4 tracking-wide">QUICK ACTIONS</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <a href="#add-asset" className="bg-tron-darkblue border border-tron-cyan/50 hover:border-tron-cyan p-4 rounded text-center text-tron-cyan hover:shadow-tron-cyan/20 transition-all">
+                  <svg className="w-6 h-6 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                  <span className="text-sm">ADD ASSET</span>
+                </a>
+                <a href="#add-category" className="bg-tron-darkblue border border-tron-cyan/50 hover:border-tron-cyan p-4 rounded text-center text-tron-cyan hover:shadow-tron-cyan/20 transition-all">
+                  <svg className="w-6 h-6 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                  <span className="text-sm">ADD CATEGORY</span>
+                </a>
+                <a href="#generate-report" className="bg-tron-darkblue border border-tron-cyan/50 hover:border-tron-cyan p-4 rounded text-center text-tron-cyan hover:shadow-tron-cyan/20 transition-all">
+                  <svg className="w-6 h-6 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span className="text-sm">GENERATE REPORT</span>
+                </a>
+                <a href="#system-settings" className="bg-tron-darkblue border border-tron-cyan/50 hover:border-tron-cyan p-4 rounded text-center text-tron-cyan hover:shadow-tron-cyan/20 transition-all">
+                  <svg className="w-6 h-6 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
+                  <span className="text-sm">SYSTEM SETTINGS</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Main App component
+    function App() {
+      return (
+        <div className="flex h-screen bg-black tron-gradient">
+          <Sidebar />
+          <div className="flex-1 overflow-auto">
+            <Dashboard />
+          </div>
+        </div>
+      );
+    }
+    
+    // Render the App
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html> 
