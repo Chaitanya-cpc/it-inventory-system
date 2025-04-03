@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
+  
+  /* Tron Legacy theme colors */
+  --tron-cyan: 0, 255, 255;
+  --tron-blue: 0, 127, 255;
+  --tron-orange: 255, 144, 0;
+  --tron-dark-blue: 10, 17, 20;
+}
+
+@layer base {
+  html {
+    @apply font-orbitron;
+  }
+  
+  body {
+    @apply bg-black text-tron-cyan;
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(var(--tron-cyan), 0.05) 0%, transparent 80%),
+      linear-gradient(to bottom, rgba(var(--tron-dark-blue), 1), rgba(0, 0, 0, 1));
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-orbitron tracking-wider;
+  }
+  
+  /* Focus styles */
+  :focus {
+    @apply outline-none ring-2 ring-tron-cyan/50 ring-offset-0;
+  }
+  
+  /* Form elements */
+  input, select, textarea {
+    @apply bg-black border border-tron-cyan/30 text-tron-cyan;
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-tron-darkblue;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-tron-cyan/30 hover:bg-tron-cyan/50 rounded-full;
+  }
+}
+
+@layer components {
+  /* Tron themed button */
+  .tron-btn {
+    @apply px-4 py-2 bg-transparent border border-tron-cyan text-tron-cyan font-medium 
+           hover:bg-tron-cyan/10 transition-all duration-200 rounded
+           focus:outline-none focus:ring-2 focus:ring-tron-cyan/50 focus:ring-offset-0;
+  }
+  
+  /* Tron themed card */
+  .tron-card {
+    @apply border border-tron-cyan/30 bg-black/60 p-6 rounded;
+  }
+  
+  /* Tron themed input */
+  .tron-input {
+    @apply bg-black border border-tron-cyan/30 text-tron-cyan placeholder-tron-cyan/50
+           focus:outline-none focus:ring-2 focus:ring-tron-cyan/50 focus:border-transparent
+           rounded px-3 py-2;
+  }
+  
+  /* Tron corner decorations */
+  .tron-corners {
+    @apply relative;
+  }
+  
+  .tron-corners::before,
+  .tron-corners::after,
+  .tron-corners > :first-child::before,
+  .tron-corners > :first-child::after {
+    @apply content-[''] absolute w-4 h-4 border-tron-cyan/70;
+  }
+  
+  .tron-corners::before {
+    @apply top-0 left-0 border-t border-l;
+  }
+  
+  .tron-corners::after {
+    @apply top-0 right-0 border-t border-r;
+  }
+  
+  .tron-corners > :first-child::before {
+    @apply bottom-0 left-0 border-b border-l;
+  }
+  
+  .tron-corners > :first-child::after {
+    @apply bottom-0 right-0 border-b border-r;
+  }
+  
+  /* Tron glow text effect */
+  .tron-text {
+    @apply text-tron-cyan relative;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7), 0 0 20px rgba(0, 255, 255, 0.4);
+  }
+  
+  /* Tron glow border effect */
+  .tron-glow {
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3), inset 0 0 5px rgba(0, 255, 255, 0.2);
+  }
+  
+  /* Grid background */
+  .tron-grid-bg {
+    background-image: linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                     linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+@layer utilities {
+  /* Tron gradient text */
+  .text-gradient-tron {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(to bottom, #00FFFF, #0099FF);
+  }
+  
+  /* Pulsing animation */
+  .animate-tron-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+} 

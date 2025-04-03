@@ -5,25 +5,33 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
-      // In a real app, use the login function from auth.ts
-      // For now, just mock a successful login
+      // In a real app, this would call the register API endpoint
+      // For demo, just simulate a successful registration
       await new Promise(resolve => setTimeout(resolve, 1000));
-
-      toast.success('Login successful!');
-      router.push('/dashboard');
+      
+      toast.success('Registration successful!');
+      router.push('/login');
     } catch (error) {
-      toast.error('Invalid credentials. Please try again.');
+      toast.error('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -33,8 +41,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-black grid-bg flex flex-col justify-center">
       <div className="mx-auto max-w-md w-full px-4 sm:px-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-tron-cyan tron-text font-orbitron tracking-wider">IDENTITY VERIFICATION</h1>
-          <p className="text-tron-cyan/70 mt-2 font-orbitron">Access the Grid</p>
+          <h1 className="text-3xl font-bold text-tron-cyan tron-text font-orbitron tracking-wider">CREATE IDENTITY DISK</h1>
+          <p className="text-tron-cyan/70 mt-2 font-orbitron">Register for system access</p>
         </div>
 
         <div className="bg-black rounded-lg border border-tron-cyan/30 shadow-lg p-6 sm:p-8 relative">
@@ -61,6 +69,21 @@ export default function LoginPage() {
             </div>
 
             <div>
+              <label htmlFor="email" className="block text-sm font-medium text-tron-cyan/90 font-orbitron tracking-wide mb-1">
+                EMAIL
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full bg-black border border-tron-cyan/50 text-white rounded-md px-3 py-2 shadow-sm focus:border-tron-cyan focus:ring focus:ring-tron-cyan/20 focus:outline-none font-orbitron"
+              />
+            </div>
+
+            <div>
               <label htmlFor="password" className="block text-sm font-medium text-tron-cyan/90 font-orbitron tracking-wide mb-1">
                 PASSWORD
               </label>
@@ -76,6 +99,21 @@ export default function LoginPage() {
             </div>
 
             <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-tron-cyan/90 font-orbitron tracking-wide mb-1">
+                CONFIRM PASSWORD
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-1 block w-full bg-black border border-tron-cyan/50 text-white rounded-md px-3 py-2 shadow-sm focus:border-tron-cyan focus:ring focus:ring-tron-cyan/20 focus:outline-none font-orbitron"
+              />
+            </div>
+
+            <div>
               <button
                 type="submit"
                 disabled={isLoading}
@@ -83,7 +121,7 @@ export default function LoginPage() {
                   isLoading ? 'opacity-70 cursor-not-allowed' : ''
                 }`}
               >
-                {isLoading ? 'AUTHENTICATING...' : 'ACCESS SYSTEM'}
+                {isLoading ? 'CREATING IDENTITY...' : 'CREATE IDENTITY'}
               </button>
             </div>
           </form>
@@ -91,9 +129,9 @@ export default function LoginPage() {
           <div className="mt-6">
             <div className="text-sm text-center">
               <p className="text-tron-cyan/70 font-orbitron">
-                No identity disk?{' '}
-                <Link href="/register" className="font-medium text-tron-cyan hover:text-white transition-colors">
-                  CREATE ONE
+                Already have an identity?{' '}
+                <Link href="/login" className="font-medium text-tron-cyan hover:text-white transition-colors">
+                  LOGIN
                 </Link>
               </p>
             </div>
