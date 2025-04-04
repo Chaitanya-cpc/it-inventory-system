@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const mockHardwareItems = [
+const defaultHardwareItems = [
   { id: 1, name: 'Dell XPS 15 Laptop', category: 'Computer', status: 'Active', location: 'Office', purchaseDate: '2022-05-15', warranty: '2025-05-15' },
   { id: 2, name: 'Corsair K70 Keyboard', category: 'Peripheral', status: 'Active', location: 'Office', purchaseDate: '2021-11-03', warranty: '2023-11-03' },
   { id: 3, name: 'Cisco Router 2900', category: 'Network', status: 'Active', location: 'Server Room', purchaseDate: '2020-07-22', warranty: '2023-07-22' },
@@ -18,16 +18,34 @@ export default function HardwarePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [hardwareItems, setHardwareItems] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
   
-  const filteredItems = mockHardwareItems.filter(item => {
+  // Load hardware items from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedItems = localStorage.getItem('hardwareItems');
+      
+      if (storedItems) {
+        setHardwareItems(JSON.parse(storedItems));
+      } else {
+        // Initialize with default data if nothing in localStorage
+        setHardwareItems(defaultHardwareItems);
+        localStorage.setItem('hardwareItems', JSON.stringify(defaultHardwareItems));
+      }
+    }
+  }, []);
+  
+  const filteredItems = hardwareItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
     const matchesStatus = selectedStatus === 'All' || item.status === selectedStatus;
     return matchesSearch && matchesCategory && matchesStatus;
   });
   
-  const categories = Array.from(new Set(mockHardwareItems.map(item => item.category)));
-  const statuses = Array.from(new Set(mockHardwareItems.map(item => item.status)));
+  const categories = Array.from(new Set(hardwareItems.map(item => item.category)));
+  const statuses = Array.from(new Set(hardwareItems.map(item => item.status)));
 
   // Format date to display in MM/DD/YYYY format
   const formatDate = (dateString: string) => {
@@ -42,6 +60,37 @@ export default function HardwarePage() {
     return today > warrantyDate;
   };
   
+  // Handle item deletion
+  const handleDeleteItem = (id: number) => {
+    setItemToDelete(id);
+    setShowDeleteModal(true);
+  };
+  
+  // Confirm deletion
+  const confirmDelete = () => {
+    if (itemToDelete === null) return;
+    
+    const updatedItems = hardwareItems.filter(item => item.id !== itemToDelete);
+    setHardwareItems(updatedItems);
+    localStorage.setItem('hardwareItems', JSON.stringify(updatedItems));
+    
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+  };
+  
+  // Handle status change
+  const changeItemStatus = (id: number, newStatus: string) => {
+    const updatedItems = hardwareItems.map(item => {
+      if (item.id === id) {
+        return { ...item, status: newStatus };
+      }
+      return item;
+    });
+    
+    setHardwareItems(updatedItems);
+    localStorage.setItem('hardwareItems', JSON.stringify(updatedItems));
+  };
+  
   return (
     <div className="h-full">
       <header className="px-6 py-4 border-b border-tron-cyan/30">
@@ -54,19 +103,19 @@ export default function HardwarePage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="border border-tron-cyan/50 rounded p-4 bg-tron-darkblue/30 text-tron-cyan">
             <p className="text-xs tracking-wider opacity-70">TOTAL HARDWARE</p>
-            <p className="text-2xl font-semibold mt-1">{mockHardwareItems.length}</p>
+            <p className="text-2xl font-semibold mt-1">{hardwareItems.length}</p>
           </div>
           <div className="border border-tron-green/50 rounded p-4 bg-tron-darkblue/30 text-tron-green">
             <p className="text-xs tracking-wider opacity-70">ACTIVE</p>
-            <p className="text-2xl font-semibold mt-1">{mockHardwareItems.filter(item => item.status === 'Active').length}</p>
+            <p className="text-2xl font-semibold mt-1">{hardwareItems.filter(item => item.status === 'Active').length}</p>
           </div>
           <div className="border border-tron-orange/50 rounded p-4 bg-tron-darkblue/30 text-tron-orange">
             <p className="text-xs tracking-wider opacity-70">MAINTENANCE</p>
-            <p className="text-2xl font-semibold mt-1">{mockHardwareItems.filter(item => item.status === 'Maintenance').length}</p>
+            <p className="text-2xl font-semibold mt-1">{hardwareItems.filter(item => item.status === 'Maintenance').length}</p>
           </div>
           <div className="border border-tron-red/50 rounded p-4 bg-tron-darkblue/30 text-tron-red">
             <p className="text-xs tracking-wider opacity-70">INACTIVE</p>
-            <p className="text-2xl font-semibold mt-1">{mockHardwareItems.filter(item => item.status === 'Inactive').length}</p>
+            <p className="text-2xl font-semibold mt-1">{hardwareItems.filter(item => item.status === 'Inactive').length}</p>
           </div>
         </div>
         
@@ -162,7 +211,7 @@ export default function HardwarePage() {
                   filteredItems.map((item) => (
                     <tr key={item.id} className="hover:bg-tron-darkblue/50 transition">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-tron-cyan">
-                        {item.name}
+                        <Link href={`/dashboard/hardware/${item.id}`} className="hover:underline">{item.name}</Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-tron-cyan/80">
                         {item.category}
@@ -189,22 +238,57 @@ export default function HardwarePage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
-                          <button
+                          <Link
+                            href={`/dashboard/hardware/${item.id}`}
                             className="text-tron-cyan hover:text-tron-cyan/70"
-                            onClick={() => {}}
                           >
                             <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                             </svg>
-                          </button>
+                          </Link>
                           <button
                             className="text-tron-red hover:text-tron-red/70"
-                            onClick={() => {}}
+                            onClick={() => handleDeleteItem(item.id)}
                           >
                             <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                             </svg>
                           </button>
+                          <div className="relative group">
+                            <button className="text-tron-cyan hover:text-tron-cyan/70">
+                              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+                              </svg>
+                            </button>
+                            <div className="absolute right-0 mt-2 w-48 bg-black border border-tron-cyan/30 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-10">
+                              <div className="py-1">
+                                {item.status !== 'Active' && (
+                                  <button
+                                    onClick={() => changeItemStatus(item.id, 'Active')}
+                                    className="block w-full text-left px-4 py-2 text-sm text-tron-green hover:bg-tron-darkblue/50"
+                                  >
+                                    Set to Active
+                                  </button>
+                                )}
+                                {item.status !== 'Maintenance' && (
+                                  <button
+                                    onClick={() => changeItemStatus(item.id, 'Maintenance')}
+                                    className="block w-full text-left px-4 py-2 text-sm text-tron-orange hover:bg-tron-darkblue/50"
+                                  >
+                                    Set to Maintenance
+                                  </button>
+                                )}
+                                {item.status !== 'Inactive' && (
+                                  <button
+                                    onClick={() => changeItemStatus(item.id, 'Inactive')}
+                                    className="block w-full text-left px-4 py-2 text-sm text-tron-red hover:bg-tron-darkblue/50"
+                                  >
+                                    Set to Inactive
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -215,6 +299,30 @@ export default function HardwarePage() {
           </div>
         </div>
       </div>
+      
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+          <div className="bg-tron-darkblue/95 border border-tron-cyan/50 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-tron-cyan mb-4">Confirm Deletion</h3>
+            <p className="text-tron-cyan/80 mb-6">Are you sure you want to delete this hardware item? This action cannot be undone.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-tron-cyan/50 text-tron-cyan rounded hover:bg-tron-cyan/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-tron-red text-white rounded hover:bg-tron-red/90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

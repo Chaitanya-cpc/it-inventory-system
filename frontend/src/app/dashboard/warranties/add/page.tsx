@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
 
 export default function AddWarrantyPage() {
+  const router = useRouter();
   const [item, setItem] = useState('');
   const [provider, setProvider] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
@@ -23,49 +25,60 @@ export default function AddWarrantyPage() {
     e.preventDefault();
     setLoading(true);
     
-    // Create form data to include file
-    const formData = new FormData();
-    formData.append('item', item);
-    formData.append('provider', provider);
-    formData.append('purchaseDate', purchaseDate);
-    formData.append('expirationDate', expirationDate);
-    formData.append('status', status);
-    formData.append('details', details);
-    if (document) {
-      formData.append('document', document);
-    }
-    
-    // Simulate API call with confirmation
-    setTimeout(() => {
-      setLoading(false);
-      setFormSubmitted(true);
+    try {
+      // Calculate warranty status based on expiration date
+      const today = new Date();
+      const expiry = new Date(expirationDate);
+      const diffTime = expiry.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      // In a real app, we would send formData to backend API
-      // Example using fetch:
-      /*
-      fetch('/api/warranties', {
-        method: 'POST',
-        body: formData,
-      })
-      .then(response => response.json())
-      .then(data => {
-        setLoading(false);
-        setFormSubmitted(true);
-        // Handle success
-        setTimeout(() => window.location.href = '/dashboard/warranties', 1500);
-      })
-      .catch(error => {
-        setLoading(false);
-        // Handle error
-        console.error('Error:', error);
-      });
-      */
+      let warrantyStatus = status;
+      // Auto-correct the status based on dates
+      if (diffDays <= 0) {
+        warrantyStatus = 'Expired';
+      } else if (diffDays <= 30) {
+        warrantyStatus = 'Expiring Soon';
+      } else {
+        warrantyStatus = 'Active';
+      }
       
-      // Redirect after showing success message
+      // Create new warranty object
+      const newWarranty = {
+        id: Date.now(),
+        item,
+        provider,
+        purchaseDate,
+        expirationDate,
+        status: warrantyStatus,
+        details,
+        // We can't actually store File objects in localStorage,
+        // but in a real app this would be uploaded to a server
+        documentName: document ? document.name : null
+      };
+      
+      // Get existing warranties from localStorage
+      const existingWarranties = JSON.parse(localStorage.getItem('warranties') || '[]');
+      
+      // Add new warranty
+      const updatedWarranties = [...existingWarranties, newWarranty];
+      
+      // Save back to localStorage
+      localStorage.setItem('warranties', JSON.stringify(updatedWarranties));
+      
+      // Show success message and redirect
       setTimeout(() => {
-        window.location.href = '/dashboard/warranties';
-      }, 1500);
-    }, 1000);
+        setFormSubmitted(true);
+        setLoading(false);
+        
+        // Redirect after showing success message
+        setTimeout(() => {
+          router.push('/dashboard/warranties');
+        }, 1500);
+      }, 800);
+    } catch (err) {
+      console.error("Error saving warranty:", err);
+      setLoading(false);
+    }
   };
   
   if (formSubmitted) {

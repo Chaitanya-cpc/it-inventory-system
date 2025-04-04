@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const mockSubscriptions = [
+const defaultSubscriptions = [
   { 
     id: 1, 
     name: 'Netflix Premium', 
@@ -63,15 +63,33 @@ const mockSubscriptions = [
 export default function SubscriptionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [subscriptions, setSubscriptions] = useState([]);
   
-  const filteredItems = mockSubscriptions.filter(subscription => {
+  // Load subscriptions from localStorage on component mount
+  useEffect(() => {
+    // Check if localStorage is available (for SSR)
+    if (typeof window !== 'undefined') {
+      // Get subscriptions from localStorage or use default if none exist
+      const storedSubscriptions = localStorage.getItem('subscriptions');
+      
+      if (storedSubscriptions) {
+        setSubscriptions(JSON.parse(storedSubscriptions));
+      } else {
+        // Initialize with default data if nothing in localStorage
+        setSubscriptions(defaultSubscriptions);
+        localStorage.setItem('subscriptions', JSON.stringify(defaultSubscriptions));
+      }
+    }
+  }, []);
+  
+  const filteredItems = subscriptions.filter(subscription => {
     const matchesSearch = subscription.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || subscription.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
   
   // Calculate total monthly cost
-  const totalMonthlyCost = mockSubscriptions
+  const totalMonthlyCost = subscriptions
     .filter(sub => sub.status === 'Active')
     .reduce((total, sub) => {
       const price = parseFloat(sub.price.replace('$', ''));
@@ -95,7 +113,7 @@ export default function SubscriptionsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="border border-tron-cyan/50 rounded p-4 bg-tron-darkblue/30 text-tron-cyan">
             <p className="text-xs tracking-wider opacity-70">TOTAL SUBSCRIPTIONS</p>
-            <p className="text-2xl font-semibold mt-1">{mockSubscriptions.filter(sub => sub.status === 'Active').length}</p>
+            <p className="text-2xl font-semibold mt-1">{subscriptions.filter(sub => sub.status === 'Active').length}</p>
           </div>
           <div className="border border-tron-orange/50 rounded p-4 bg-tron-darkblue/30 text-tron-orange">
             <p className="text-xs tracking-wider opacity-70">MONTHLY COST</p>
@@ -104,7 +122,7 @@ export default function SubscriptionsPage() {
           <div className="border border-tron-green/50 rounded p-4 bg-tron-darkblue/30 text-tron-green">
             <p className="text-xs tracking-wider opacity-70">NEXT RENEWAL</p>
             <p className="text-2xl font-semibold mt-1">{
-              mockSubscriptions
+              subscriptions
                 .filter(sub => sub.status === 'Active')
                 .sort((a, b) => new Date(a.nextBilling).getTime() - new Date(b.nextBilling).getTime())[0]?.nextBilling || 'N/A'
             }</p>

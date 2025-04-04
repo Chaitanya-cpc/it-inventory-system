@@ -11,6 +11,11 @@ A personal web tool for asset and inventory management with a Tron Legacy-inspir
 - Asset management by categories
 - Subscription and warranty tracking
 - Modern Tron Legacy inspired UI
+- Responsive design for mobile and desktop
+- File upload for documents and images
+- Toast notifications for user feedback
+- Error boundary for graceful error handling
+- Form validation for data integrity
 
 ## Project Structure
 
@@ -25,10 +30,27 @@ inventory_management_IT/
 │
 ├── frontend/              # Next.js frontend
 │   ├── src/               # Source code
+│   │   ├── app/           # Next.js app router pages
+│   │   ├── components/    # Reusable UI components
+│   │   ├── styles/        # CSS styles
+│   │   └── utils/         # Utility functions
 │   ├── public/            # Static assets
 │   ├── index.html         # Standalone HTML version
 │   └── Dockerfile         # Frontend Docker config
 ```
+
+## Key Components
+
+### Frontend Components
+- **FileUpload**: Drag-and-drop file upload with preview
+- **ErrorBoundary**: Catches and displays errors gracefully
+- **Toast**: Customizable notification system
+- **Sidebar**: Responsive navigation with collapsible design
+
+### Utility Functions
+- **ServerResponse**: Mock API utilities for development
+- **FormValidation**: Form validation helpers
+- **Toast Context**: Global toast notification management
 
 ## Quick Start
 
@@ -251,12 +273,21 @@ For production deployment:
 
 - If you're seeing errors in the browser console, check that your backend API is accessible
 - For TypeScript errors, refer to the troubleshooting section in frontend/README.md
+- For file upload issues, check that your form is using `multipart/form-data` encoding
 
 ### Backend Issues
 
 - Check Django logs for error details: `python manage.py runserver --traceback`
 - For database migration issues: `python manage.py makemigrations` followed by `python manage.py migrate`
 - For deployment issues, check GCP logs: `gcloud app logs tail`
+
+## Browser Support
+
+The application is optimized for modern browsers:
+- Chrome 90+
+- Firefox 90+
+- Safari 14+
+- Edge 90+
 
 ## License
 

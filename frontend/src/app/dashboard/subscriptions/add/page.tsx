@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AddSubscriptionPage() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [provider, setProvider] = useState('');
   const [cost, setCost] = useState('');
@@ -17,11 +19,32 @@ export default function AddSubscriptionPage() {
     e.preventDefault();
     setLoading(true);
     
+    // Create new subscription object
+    const newSubscription = {
+      id: Date.now(), // Use timestamp as a simple unique ID
+      name: name,
+      category: category,
+      price: `$${cost}`,
+      billingCycle: billingCycle,
+      nextBilling: renewalDate,
+      status: 'Active',
+      provider: provider,
+      startDate: startDate
+    };
+    
+    // Get existing subscriptions from localStorage or use empty array
+    const existingSubscriptions = JSON.parse(localStorage.getItem('subscriptions') || '[]');
+    
+    // Add new subscription to the array
+    const updatedSubscriptions = [...existingSubscriptions, newSubscription];
+    
+    // Save back to localStorage
+    localStorage.setItem('subscriptions', JSON.stringify(updatedSubscriptions));
+    
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      // In a real app, we would redirect to the subscriptions page after successful creation
-      window.location.href = '/dashboard/subscriptions';
+      router.push('/dashboard/subscriptions');
     }, 1000);
   };
   

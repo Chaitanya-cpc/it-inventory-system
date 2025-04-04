@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
-import { createFormData, mockApiCall } from '@/utils/ServerResponse';
 
 export default function AddHardwarePage() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [location, setLocation] = useState('');
@@ -28,32 +29,42 @@ export default function AddHardwarePage() {
     setLoading(true);
     setError(null);
     
-    const formData = {
-      name,
-      category,
-      location,
-      purchaseDate,
-      warranty,
-      status,
-      serialNumber,
-      notes,
-      image
-    };
-    
     try {
-      // In a real app, we would send this to an actual API
-      await mockApiCall('/api/hardware', 'POST', formData);
+      // Create new hardware item
+      const newHardwareItem = {
+        id: Date.now(), // Using timestamp as a simple unique ID
+        name,
+        category,
+        location,
+        purchaseDate,
+        warranty,
+        status,
+        serialNumber,
+        notes,
+      };
       
-      setFormSubmitted(true);
+      // Get existing hardware from localStorage
+      const existingItems = JSON.parse(localStorage.getItem('hardwareItems') || '[]');
       
-      // Redirect after showing success message
+      // Add new item to the list
+      const updatedItems = [...existingItems, newHardwareItem];
+      
+      // Save back to localStorage
+      localStorage.setItem('hardwareItems', JSON.stringify(updatedItems));
+      
+      // Simulate a short delay to show the success message
       setTimeout(() => {
-        window.location.href = '/dashboard/hardware';
-      }, 2000);
+        setFormSubmitted(true);
+        setLoading(false);
+        
+        // Redirect after showing success message
+        setTimeout(() => {
+          router.push('/dashboard/hardware');
+        }, 1500);
+      }, 800);
     } catch (err) {
+      console.error("Error saving hardware:", err);
       setError('An error occurred while saving the hardware. Please try again.');
-      console.error(err);
-    } finally {
       setLoading(false);
     }
   };
@@ -66,8 +77,8 @@ export default function AddHardwarePage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           <h1 className="text-xl font-bold mt-4">HARDWARE ADDED SUCCESSFULLY</h1>
-          <p className="mt-2 text-tron-cyan/70">Your hardware information has been saved to the system.</p>
-          <p className="mt-1 text-tron-cyan/70">Redirecting to hardware page...</p>
+          <p className="mt-2 text-tron-cyan/70">Your hardware has been added to the inventory system.</p>
+          <p className="mt-1 text-tron-cyan/70">Redirecting to hardware list...</p>
         </div>
       </div>
     );

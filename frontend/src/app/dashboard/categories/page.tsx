@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export const mockCategories = [
+export const defaultCategories = [
   { 
     id: 1, 
     name: 'Computers', 
@@ -109,12 +109,112 @@ export const mockCategories = [
 export default function CategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editMode, setEditMode] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   
-  const filteredCategories = mockCategories.filter(category => 
+  // Load categories from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedCategories = localStorage.getItem('categories');
+      
+      if (storedCategories) {
+        // Parse the JSON but convert the icon strings back to JSX elements
+        const parsedCategories = JSON.parse(storedCategories);
+        setCategories(parsedCategories);
+      } else {
+        // Store default categories in localStorage
+        const categoriesToStore = defaultCategories.map(category => ({
+          ...category,
+          // Convert SVG icon to string for storage
+          icon: category.icon ? 
+            typeof category.icon === 'string' ? 
+            category.icon : 
+            (category.icon.props?.children?.props?.d || '')
+            : ''
+        }));
+        
+        localStorage.setItem('categories', JSON.stringify(categoriesToStore));
+        setCategories(categoriesToStore);
+      }
+    }
+  }, []);
+  
+  const filteredCategories = categories.filter(category => 
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const totalItems = mockCategories.reduce((sum, category) => sum + category.itemCount, 0);
+  const totalItems = categories.reduce((sum, category) => sum + category.itemCount, 0);
+  
+  // Handle category deletion
+  const handleDeleteCategory = (id: number) => {
+    setCategoryToDelete(id);
+    setShowDeleteModal(true);
+  };
+  
+  // Confirm deletion
+  const confirmDelete = () => {
+    if (categoryToDelete === null) return;
+    
+    const updatedCategories = categories.filter(category => category.id !== categoryToDelete);
+    setCategories(updatedCategories);
+    localStorage.setItem('categories', JSON.stringify(updatedCategories));
+    
+    setShowDeleteModal(false);
+    setCategoryToDelete(null);
+  };
+  
+  // Handle category editing
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setEditName(category.name);
+    setEditDescription(category.description);
+    setShowEditModal(true);
+  };
+  
+  // Save edited category
+  const saveEditedCategory = () => {
+    if (!editingCategory) return;
+    
+    const updatedCategories = categories.map(category => {
+      if (category.id === editingCategory.id) {
+        return {
+          ...category,
+          name: editName,
+          description: editDescription
+        };
+      }
+      return category;
+    });
+    
+    setCategories(updatedCategories);
+    localStorage.setItem('categories', JSON.stringify(updatedCategories));
+    
+    setShowEditModal(false);
+    setEditingCategory(null);
+  };
+  
+  // Generate SVG icon for a category
+  const renderCategoryIcon = (category: any) => {
+    if (typeof category.icon === 'object') {
+      // It's already a JSX element
+      return category.icon;
+    } else if (typeof category.icon === 'string' && category.icon.includes('path')) {
+      // It's an SVG string
+      return category.icon;
+    } else {
+      // It's a path string or empty, create a default icon
+      return (
+        <svg className="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={category.icon || "M4 6h16M4 10h16M4 14h16M4 18h16"} />
+        </svg>
+      );
+    }
+  };
   
   return (
     <div className="h-full">
@@ -128,7 +228,7 @@ export default function CategoriesPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="border border-tron-cyan/50 rounded p-4 bg-tron-darkblue/30 text-tron-cyan">
             <p className="text-xs tracking-wider opacity-70">TOTAL CATEGORIES</p>
-            <p className="text-2xl font-semibold mt-1">{mockCategories.length}</p>
+            <p className="text-2xl font-semibold mt-1">{categories.length}</p>
           </div>
           <div className="border border-tron-cyan/50 rounded p-4 bg-tron-darkblue/30 text-tron-cyan">
             <p className="text-xs tracking-wider opacity-70">TOTAL ITEMS</p>
@@ -136,7 +236,7 @@ export default function CategoriesPage() {
           </div>
           <div className="border border-tron-cyan/50 rounded p-4 bg-tron-darkblue/30 text-tron-cyan">
             <p className="text-xs tracking-wider opacity-70">AVERAGE ITEMS PER CATEGORY</p>
-            <p className="text-2xl font-semibold mt-1">{Math.round(totalItems / mockCategories.length)}</p>
+            <p className="text-2xl font-semibold mt-1">{categories.length ? Math.round(totalItems / categories.length) : 0}</p>
           </div>
         </div>
         
@@ -193,7 +293,7 @@ export default function CategoriesPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex items-center">
                       <div className="text-tron-cyan mr-3">
-                        {category.icon}
+                        {renderCategoryIcon(category)}
                       </div>
                       <h3 className="text-xl font-semibold text-tron-cyan">{category.name}</h3>
                     </div>
@@ -202,7 +302,7 @@ export default function CategoriesPage() {
                       <div className="flex space-x-2">
                         <button 
                           className="text-tron-cyan hover:text-tron-cyan/70 transition-colors"
-                          onClick={() => {}}
+                          onClick={() => handleEditCategory(category)}
                         >
                           <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -210,7 +310,7 @@ export default function CategoriesPage() {
                         </button>
                         <button 
                           className="text-tron-red hover:text-tron-red/70 transition-colors"
-                          onClick={() => {}}
+                          onClick={() => handleDeleteCategory(category.id)}
                         >
                           <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -247,6 +347,80 @@ export default function CategoriesPage() {
           </div>
         )}
       </div>
+      
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+          <div className="bg-tron-darkblue/95 border border-tron-cyan/50 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-tron-cyan mb-4">Confirm Deletion</h3>
+            <p className="text-tron-cyan/80 mb-6">Are you sure you want to delete this category? This action cannot be undone and may affect all items in this category.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-tron-cyan/50 text-tron-cyan rounded hover:bg-tron-cyan/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-tron-red text-white rounded hover:bg-tron-red/90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit category modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+          <div className="bg-tron-darkblue/95 border border-tron-cyan/50 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-tron-cyan mb-4">Edit Category</h3>
+            
+            <div className="mb-4">
+              <label htmlFor="editName" className="block text-sm text-tron-cyan mb-1">CATEGORY NAME</label>
+              <input
+                id="editName"
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full bg-black border border-tron-cyan/30 text-tron-cyan placeholder-tron-cyan/50 focus:outline-none focus:ring-2 focus:ring-tron-cyan/50 focus:border-transparent rounded px-4 py-2"
+                placeholder="Enter category name"
+                required
+              />
+            </div>
+            
+            <div className="mb-6">
+              <label htmlFor="editDescription" className="block text-sm text-tron-cyan mb-1">DESCRIPTION</label>
+              <textarea
+                id="editDescription"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="w-full bg-black border border-tron-cyan/30 text-tron-cyan placeholder-tron-cyan/50 focus:outline-none focus:ring-2 focus:ring-tron-cyan/50 focus:border-transparent rounded px-4 py-2"
+                placeholder="Enter category description"
+                rows={3}
+                required
+              ></textarea>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 border border-tron-cyan/50 text-tron-cyan rounded hover:bg-tron-cyan/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEditedCategory}
+                className="px-4 py-2 bg-tron-cyan text-black font-medium rounded hover:bg-tron-cyan/90"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

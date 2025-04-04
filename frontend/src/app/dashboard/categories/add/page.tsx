@@ -2,23 +2,69 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AddCategoryPage() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Create new category object
+      const newCategory = {
+        id: Date.now(),
+        name,
+        description,
+        itemCount: 0,
+        // Default icon path for new category
+        icon: "M4 6h16M4 10h16M4 14h16M4 18h16"
+      };
+      
+      // Get existing categories from localStorage
+      const existingCategories = JSON.parse(localStorage.getItem('categories') || '[]');
+      
+      // Add new category
+      const updatedCategories = [...existingCategories, newCategory];
+      
+      // Save back to localStorage
+      localStorage.setItem('categories', JSON.stringify(updatedCategories));
+      
+      // Show success message and redirect
+      setTimeout(() => {
+        setFormSubmitted(true);
+        setLoading(false);
+        
+        // Redirect after showing success message
+        setTimeout(() => {
+          router.push('/dashboard/categories');
+        }, 1500);
+      }, 800);
+    } catch (err) {
+      console.error("Error saving category:", err);
       setLoading(false);
-      // In a real app, we would redirect to the categories page after successful creation
-      window.location.href = '/dashboard/categories';
-    }, 1000);
+    }
   };
+  
+  if (formSubmitted) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-tron-cyan text-center p-8 border border-tron-cyan/30 bg-black rounded max-w-md">
+          <svg className="mx-auto h-16 w-16 text-tron-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <h1 className="text-xl font-bold mt-4">CATEGORY ADDED SUCCESSFULLY</h1>
+          <p className="mt-2 text-tron-cyan/70">Your new category has been created.</p>
+          <p className="mt-1 text-tron-cyan/70">Redirecting to categories page...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="h-full">

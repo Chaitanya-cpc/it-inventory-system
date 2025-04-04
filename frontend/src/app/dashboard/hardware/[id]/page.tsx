@@ -2,25 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
 
-// Mock hardware data (in a real app this would come from an API)
-const mockHardwareItems = [
-  { id: 1, name: 'Dell XPS 15 Laptop', category: 'Computer', status: 'Active', location: 'Office', serialNumber: 'XPS-15982-A', purchaseDate: '2022-05-15', warranty: '2025-05-15', notes: 'Assigned to Engineering department. Includes docking station and external monitor.', image: null },
-  { id: 2, name: 'Corsair K70 Keyboard', category: 'Peripheral', status: 'Active', location: 'Office', serialNumber: 'COR-K70-4532', purchaseDate: '2021-11-03', warranty: '2023-11-03', notes: 'RGB mechanical keyboard with Cherry MX Brown switches.', image: null },
-  { id: 3, name: 'Cisco Router 2900', category: 'Network', status: 'Active', location: 'Server Room', serialNumber: 'CSC29-77842', purchaseDate: '2020-07-22', warranty: '2023-07-22', notes: 'Main office router. Configured with dual WAN connections for failover.', image: null },
-  { id: 4, name: 'HP LaserJet Printer', category: 'Printer', status: 'Maintenance', location: 'Office', serialNumber: 'HP-LJ-5839B', purchaseDate: '2019-03-10', warranty: '2022-03-10', notes: 'Department printer. Requires maintenance - paper jam issues reported.', image: null },
-  { id: 5, name: 'Logitech MX Master Mouse', category: 'Peripheral', status: 'Active', location: 'Office', serialNumber: 'LOG-MX-9931', purchaseDate: '2022-01-05', warranty: '2024-01-05', notes: 'Wireless ergonomic mouse with programmable buttons.', image: null },
-  { id: 6, name: 'Raspberry Pi 4', category: 'Computer', status: 'Inactive', location: 'Lab', serialNumber: 'RPI4-0048293', purchaseDate: '2021-09-18', warranty: '2023-09-18', notes: 'Used for monitoring system. Currently not in use.', image: null },
-  { id: 7, name: 'Netgear Switch 24-Port', category: 'Network', status: 'Active', location: 'Server Room', serialNumber: 'NG-SW24-7732', purchaseDate: '2020-11-30', warranty: '2023-11-30', notes: 'Main switch for east side of the office. 1Gbps ports.', image: null },
-  { id: 8, name: 'Dell U2720Q Monitor', category: 'Display', status: 'Active', location: 'Office', serialNumber: 'DL-U272-5563', purchaseDate: '2021-06-14', warranty: '2024-06-14', notes: '27" 4K monitor used by the design team.', image: null },
-];
-
 export default function HardwareDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [hardware, setHardware] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -34,33 +25,51 @@ export default function HardwareDetailPage({ params }: { params: { id: string } 
   const [image, setImage] = useState<File | null>(null);
   
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      const foundItem = mockHardwareItems.find(item => item.id === parseInt(params.id));
-      if (foundItem) {
-        setHardware(foundItem);
-        // Initialize form state
-        setName(foundItem.name);
-        setCategory(foundItem.category);
-        setStatus(foundItem.status);
-        setLocation(foundItem.location);
-        setSerialNumber(foundItem.serialNumber);
-        setPurchaseDate(foundItem.purchaseDate);
-        setWarranty(foundItem.warranty);
-        setNotes(foundItem.notes || '');
+    // Load hardware from localStorage
+    if (typeof window !== 'undefined') {
+      const storedItems = localStorage.getItem('hardwareItems');
+      
+      if (storedItems) {
+        try {
+          const items = JSON.parse(storedItems);
+          const foundItem = items.find((item: any) => item.id.toString() === params.id);
+          
+          if (foundItem) {
+            setHardware(foundItem);
+            // Initialize form state
+            setName(foundItem.name || '');
+            setCategory(foundItem.category || '');
+            setStatus(foundItem.status || 'Active');
+            setLocation(foundItem.location || '');
+            setSerialNumber(foundItem.serialNumber || '');
+            setPurchaseDate(foundItem.purchaseDate || '');
+            setWarranty(foundItem.warranty || '');
+            setNotes(foundItem.notes || '');
+          } else {
+            setNotFound(true);
+          }
+        } catch (err) {
+          console.error("Error parsing hardware items:", err);
+          setNotFound(true);
+        }
+      } else {
+        setNotFound(true);
       }
+      
       setLoading(false);
-    }, 500);
+    }
   }, [params.id]);
   
   // Format date to display in MM/DD/YYYY format
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
   };
   
   // Calculate if warranty is expired
   const isExpired = (dateString: string) => {
+    if (!dateString) return true;
     const today = new Date();
     const warrantyDate = new Date(dateString);
     return today > warrantyDate;
@@ -68,6 +77,7 @@ export default function HardwareDetailPage({ params }: { params: { id: string } 
   
   // Calculate days until expiration
   const daysUntilExpiration = (dateString: string) => {
+    if (!dateString) return 0;
     const today = new Date();
     const warrantyDate = new Date(dateString);
     const timeDiff = warrantyDate.getTime() - today.getTime();
@@ -83,64 +93,75 @@ export default function HardwareDetailPage({ params }: { params: { id: string } 
     e.preventDefault();
     setLoading(true);
     
-    // Create form data to include image file
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('category', category);
-    formData.append('status', status);
-    formData.append('location', location);
-    formData.append('serialNumber', serialNumber);
-    formData.append('purchaseDate', purchaseDate);
-    formData.append('warranty', warranty);
-    formData.append('notes', notes);
-    if (image) {
-      formData.append('image', image);
-    }
+    // Update hardware data
+    const updatedHardware = {
+      ...hardware,
+      name,
+      category,
+      status,
+      location,
+      serialNumber,
+      purchaseDate,
+      warranty,
+      notes,
+    };
     
-    // Simulate API update with success message
-    setTimeout(() => {
-      setHardware({
-        ...hardware,
-        name,
-        category,
-        status,
-        location,
-        serialNumber,
-        purchaseDate,
-        warranty,
-        notes,
-        image: image ? URL.createObjectURL(image) : hardware.image
-      });
-      setLoading(false);
-      setEditMode(false);
-      setFormSubmitted(true);
-      
-      // Reset form submitted status after showing message
-      setTimeout(() => {
-        setFormSubmitted(false);
-      }, 3000);
-      
-      // In a real app, we would send formData to backend API
-      /*
-      fetch(`/api/hardware/${params.id}`, {
-        method: 'PUT',
-        body: formData,
-      })
-      .then(response => response.json())
-      .then(data => {
+    try {
+      // Get all hardware items 
+      const storedItems = localStorage.getItem('hardwareItems');
+      if (storedItems) {
+        const items = JSON.parse(storedItems);
+        
+        // Update the specific item
+        const updatedItems = items.map((item: any) => {
+          if (item.id.toString() === params.id) {
+            return updatedHardware;
+          }
+          return item;
+        });
+        
+        // Save back to localStorage
+        localStorage.setItem('hardwareItems', JSON.stringify(updatedItems));
+        
+        // Update local state
+        setHardware(updatedHardware);
         setLoading(false);
         setEditMode(false);
         setFormSubmitted(true);
-        // Handle success
-        setTimeout(() => setFormSubmitted(false), 3000);
-      })
-      .catch(error => {
-        setLoading(false);
-        // Handle error
-        console.error('Error:', error);
-      });
-      */
-    }, 1000);
+        
+        // Reset form submitted status after showing message
+        setTimeout(() => {
+          setFormSubmitted(false);
+        }, 3000);
+      }
+    } catch (err) {
+      console.error("Error updating hardware:", err);
+      setLoading(false);
+    }
+  };
+  
+  // Handle hardware deletion
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this hardware item? This action cannot be undone.")) {
+      try {
+        // Get all hardware items
+        const storedItems = localStorage.getItem('hardwareItems');
+        if (storedItems) {
+          const items = JSON.parse(storedItems);
+          
+          // Filter out the item to delete
+          const updatedItems = items.filter((item: any) => item.id.toString() !== params.id);
+          
+          // Save back to localStorage
+          localStorage.setItem('hardwareItems', JSON.stringify(updatedItems));
+          
+          // Redirect to hardware list
+          router.push('/dashboard/hardware');
+        }
+      } catch (err) {
+        console.error("Error deleting hardware:", err);
+      }
+    }
   };
   
   if (loading) {
@@ -158,7 +179,7 @@ export default function HardwareDetailPage({ params }: { params: { id: string } 
     );
   }
   
-  if (!hardware) {
+  if (notFound || !hardware) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-tron-cyan text-center">
@@ -256,6 +277,7 @@ export default function HardwareDetailPage({ params }: { params: { id: string } 
           
           {!editMode && (
             <button
+              onClick={handleDelete}
               className="px-4 py-2 border border-tron-red text-tron-red bg-black hover:bg-tron-red/10 rounded transition flex items-center"
             >
               <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
