@@ -1,5 +1,15 @@
 # Inventory Management Frontend
 
+## LocalStorage Functionality
+
+This frontend application includes a demo mode that uses browser localStorage to persist data without requiring a backend server. This allows you to:
+
+- Add, edit, and delete items in all sections (Hardware, Categories, Warranties, Subscriptions, etc.)
+- Have your data persist between page refreshes and browser sessions
+- Test the full functionality of the application without setting up a backend server
+
+Note: LocalStorage data is browser-specific and will be cleared if you clear your browser data.
+
 ## Running Without Node.js/npm
 
 If you're seeing `zsh: command not found: npm` error, you don't have Node.js and npm installed on your system. Here are your options:
@@ -248,4 +258,50 @@ NEXT_PUBLIC_API_URL=https://your-backend-url.com/api
 For local development, use:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000/api
-``` 
+```
+
+## Troubleshooting Common Issues
+
+### "The default export is not a React Component in page" Error
+
+This error commonly occurs with the `/dashboard/tech/add` page or similar pages. If you encounter this:
+
+1. Check that the page component has a default export that is a valid React component:
+   ```tsx
+   export default function TechAddPage() {
+     // Component code
+   }
+   ```
+
+2. Make sure the file is properly formatted as a React component with the 'use client' directive:
+   ```tsx
+   'use client';
+   
+   import { useState } from 'react';
+   // other imports
+   
+   export default function TechAddPage() {
+     // Component code
+   }
+   ```
+
+3. If the page is empty or missing, you may need to create the component file with proper structure.
+
+### Port Already in Use
+
+If you see "That port is already in use" when starting the development server:
+
+1. Find the process using the port:
+   ```bash
+   lsof -i :3000
+   ```
+
+2. Kill the process:
+   ```bash
+   kill -9 <PID>
+   ```
+
+3. Or use a different port:
+   ```bash
+   npm run dev -- -p 3001
+   ``` 

@@ -16,6 +16,7 @@ A personal web tool for asset and inventory management with a Tron Legacy-inspir
 - Toast notifications for user feedback
 - Error boundary for graceful error handling
 - Form validation for data integrity
+- LocalStorage persistence for demo/offline use
 
 ## Project Structure
 
@@ -51,6 +52,7 @@ inventory_management_IT/
 - **ServerResponse**: Mock API utilities for development
 - **FormValidation**: Form validation helpers
 - **Toast Context**: Global toast notification management
+- **LocalStorage**: Client-side data persistence for offline functionality
 
 ## Quick Start
 
@@ -73,8 +75,11 @@ python manage.py migrate
 # Create superuser
 python manage.py createsuperuser
 
-# Start development server
+# Start development server (default port 8000)
 python manage.py runserver
+
+# If port 8000 is already in use, specify another port:
+python manage.py runserver 8080
 ```
 
 ### Frontend (Next.js)
@@ -90,6 +95,48 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Demo Mode vs API Mode
+
+The application can run in two modes:
+
+1. **Demo Mode (Default)**: Uses browser localStorage to persist data without requiring a backend server. All data is stored in the browser and will be lost if the browser storage is cleared.
+
+2. **API Mode**: Connects to the Django backend API for data persistence. To switch to this mode:
+   - Make sure the backend server is running
+   - Update the `.env` file in the frontend directory with your backend URL:
+   ```
+   NEXT_PUBLIC_API_URL=http://localhost:8000/api  # or your custom port
+   ```
+   - Uncomment the API call code in the relevant components
+
+## Port Configuration
+
+- Frontend default port: 3000
+- Backend default port: 8000
+
+If you encounter port conflicts, you can:
+- For backend: Use `python manage.py runserver <port>` (e.g., `python manage.py runserver 8080`)
+- For frontend: Update the `dev` script in `package.json` to specify an alternate port:
+  ```json
+  "dev": "next dev -p 3001"
+  ```
+
+## Troubleshooting
+
+### Common Issues:
+
+1. **"The port is already in use"**:
+   - Use a different port as described in the Port Configuration section
+   - Identify and stop the process using the port: `lsof -i :<port>` then `kill <PID>`
+
+2. **"The default export is not a React Component"**:
+   - Ensure all page components have a proper React component export
+   - Check file imports and formats in the problematic page
+
+3. **Form submissions not working**:
+   - In Demo Mode, ensure localStorage is enabled in your browser
+   - In API Mode, check the backend server connections and API endpoints
 
 ## Deployment on Google Cloud Platform
 
@@ -266,20 +313,6 @@ For production deployment:
 4. Set up HTTPS with proper SSL certificates
 5. Implement proper environment variable management for secrets
 6. Configure appropriate IAM permissions for GCP services
-
-## Troubleshooting
-
-### Frontend Issues
-
-- If you're seeing errors in the browser console, check that your backend API is accessible
-- For TypeScript errors, refer to the troubleshooting section in frontend/README.md
-- For file upload issues, check that your form is using `multipart/form-data` encoding
-
-### Backend Issues
-
-- Check Django logs for error details: `python manage.py runserver --traceback`
-- For database migration issues: `python manage.py makemigrations` followed by `python manage.py migrate`
-- For deployment issues, check GCP logs: `gcloud app logs tail`
 
 ## Browser Support
 
